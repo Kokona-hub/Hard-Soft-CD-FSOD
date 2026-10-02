@@ -1,0 +1,86 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+\section{Implementation Details}
+\label{sec:suppl_impl}
+
+\paragraph{Training augmentation.}
+Every image passes through random horizontal flipping and then one of two
+paths: a resize to a randomly sampled scale, or a stronger sequence of
+resize, random-size crop, and multi-scale resize, matching the
+Grounding DINO recipe~\cite{groundingdino}. At inference all augmentations are
+disabled and evaluation follows COCO metrics.
+
+\paragraph{Support-side configuration.}
+FFCP uses a fixed context rank across domains, and the Hard update radius, the
+routing temperature, and the Soft authority budget are shared across the six
+benchmarks. The class-wise estimate is shrunk toward a cross-category drift
+subspace in the 1-shot regime and receives progressively more weight as the
+number of support instances grows.
+
+\section{Additional Quantitative Analysis}
+\label{sec:suppl_extra}
+
+\paragraph{Hyperparameter sensitivity.}
+Fig.~\ref{fig:hyperparam} in the main paper summarizes the sensitivity of the
+five shared hyper-parameters on 5-shot Clipart1k; the complete per-value sweep
+tables are provided in the released code. Each sweep varies one quantity while
+keeping the support split, checkpoint, and optimization budget fixed, and the
+shared cross-domain configuration is selected from the central stable region
+rather than tuned per domain.
+
+\section{Additional Qualitative Analysis}
+\label{sec:suppl_qual}
+
+\paragraph{Cross-domain qualitative comparison.}
+Fig.~\ref{fig:qualitative_six_domains} shows one representative query per
+target domain, with the ground truth, the text-only baseline, and the full
+model as columns. Both methods share the support split, checkpoint,
+preprocessing, score threshold, and post-processing.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.72\textwidth]{fig/qualitative_six_domains.png}
+    \caption{Qualitative comparison across six CD-FSOD target domains in the
+    5-shot setting. Each row is one domain; columns are the ground truth, the
+    text-only Grounding DINO baseline, and the full S2H-CD-FSOD model.}
+    \label{fig:qualitative_six_domains}
+\end{figure*}
+
+\paragraph{FFCP interventions.}
+Fig.~\ref{fig:intervention_examples} visualizes the foreground-frozen
+interventions that produce the context-sensitive directions used by CHSD. Each
+ground-truth box is accompanied by jittered regions at increasing overlap with
+the object, which retain realistic partial-object and boundary cues while
+changing the surrounding context. These views expose the neighboring objects
+and domain-specific background patterns that drive false positives, and explain
+why the context-sensitive subspace is removed from the identity anchor.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=0.6\textwidth]{fig/intervention_examples.png}
+    \caption{Foreground-frozen interventions across six target domains. Each row
+    shows the protected ground-truth box and several jittered regions that change
+    only the surrounding context. These probes identify where external context
+    perturbs the otherwise unchanged target representation.}
+    \label{fig:intervention_examples}
+\end{figure*}
+
+\paragraph{Failure cases.}
+Fig.~\ref{fig:failure_cases} retains representative failures so that the
+qualitative analysis is not reduced to successful examples: severe occlusion,
+very small objects, atypical support prototypes, and residual false positives
+in the full model. Authority routing mitigates support-induced errors but does
+not remove the intrinsic ambiguity of an underspecified support set.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{fig/failure_cases.png}
+    \caption{Representative failure cases. Red boxes mark false positives,
+    yellow dashed boxes mark missed ground truths, and purple labels mark
+    incorrect category assignments.}
+    \label{fig:failure_cases}
+\end{figure*}
+
+

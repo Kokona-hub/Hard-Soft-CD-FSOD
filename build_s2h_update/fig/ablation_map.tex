@@ -1,0 +1,59 @@
+\begin{figure}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\setlength{\unitlength}{1pt}
+\begin{picture}(330,165)
+  % Axes and light grid.
+  \put(25,18){\color{black!65}\line(1,0){295}}
+  \put(25,18){\color{black!65}\line(0,1){112}}
+  \put(25,46){\color{black!12}\line(1,0){295}}
+  \put(25,74){\color{black!12}\line(1,0){295}}
+  \put(25,102){\color{black!12}\line(1,0){295}}
+  \put(25,130){\color{black!12}\line(1,0){295}}
+  \put(23,18){\makebox(0,0)[r]{\scriptsize 0}}
+  \put(23,46){\makebox(0,0)[r]{\scriptsize 20}}
+  \put(23,74){\makebox(0,0)[r]{\scriptsize 40}}
+  \put(23,102){\makebox(0,0)[r]{\scriptsize 60}}
+  \put(23,130){\makebox(0,0)[r]{\scriptsize 80}}
+  \put(4,74){\rotatebox{90}{\scriptsize mAP (\%)}}
+  % Legend.
+  \put(28,153){{\color{gray!55}\rule{6pt}{6pt}}}\put(36,153){\scriptsize Baseline}
+  \put(83,153){{\color{violet!65}\rule{6pt}{6pt}}}\put(91,153){\scriptsize FFCP}
+  \put(132,153){{\color{pink!70}\rule{6pt}{6pt}}}\put(140,153){\scriptsize FFCP+CHSD}
+  \put(195,153){{\color{blue!70}\rule{6pt}{6pt}}}\put(203,153){\scriptsize Full}
+  % X-axis ticks.
+  \put(35,18){\line(0,-1){3}}\put(70,18){\line(0,-1){3}}\put(105,18){\line(0,-1){3}}
+  \put(140,18){\line(0,-1){3}}\put(175,18){\line(0,-1){3}}\put(210,18){\line(0,-1){3}}
+  \put(245,18){\line(0,-1){3}}\put(280,18){\line(0,-1){3}}
+  % Bars (5-shot; scale 1.4pt/mAP). Values are baseline, FFCP, FFCP+CHSD, full.
+  % Clipart1k: 57.6, 58.6, 58.3, 59.6.
+  \put(63,18){{\color{gray!55}\rule{5pt}{80.6pt}}}\put(69,18){{\color{violet!65}\rule{5pt}{82.0pt}}}
+  \put(75,18){{\color{pink!70}\rule{5pt}{81.6pt}}}\put(81,18){{\color{blue!70}\rule{5pt}{83.4pt}}}
+  % DeepFish (FISH): 41.6, 73.2, 73.8, 74.0.
+  \put(133,18){{\color{gray!55}\rule{5pt}{58.2pt}}}\put(139,18){{\color{violet!65}\rule{5pt}{102.5pt}}}
+  \put(145,18){{\color{pink!70}\rule{5pt}{103.3pt}}}\put(151,18){{\color{blue!70}\rule{5pt}{103.6pt}}}
+  % NEU-DET: 19.7, 29.5, 28.3, 28.7.
+  \put(203,18){{\color{gray!55}\rule{5pt}{27.6pt}}}\put(209,18){{\color{violet!65}\rule{5pt}{41.3pt}}}
+  \put(215,18){{\color{pink!70}\rule{5pt}{39.6pt}}}\put(221,18){{\color{blue!70}\rule{5pt}{40.2pt}}}
+  % UODD: 25.6, 27.8, 26.7, 27.0.
+  \put(273,18){{\color{gray!55}\rule{5pt}{35.8pt}}}\put(279,18){{\color{violet!65}\rule{5pt}{38.9pt}}}
+  \put(285,18){{\color{pink!70}\rule{5pt}{37.4pt}}}\put(291,18){{\color{blue!70}\rule{5pt}{37.8pt}}}
+  % Value labels.
+  \put(61,101){\color{gray!70}\tiny 57.6}\put(67,108){\color{violet!85!black}\tiny 58.6}
+  \put(73,115){\color{pink!75!black}\tiny 58.3}\put(79,123){\color{blue!80!black}\tiny 59.6}
+  \put(131,79){\color{gray!70}\tiny 41.6}\put(136,124){\color{violet!85!black}\tiny 73.2}
+  \put(143,132){\color{pink!75!black}\tiny 73.8}\put(149,140){\color{blue!80!black}\tiny 74.0}
+  \put(201,48){\color{gray!70}\tiny 19.7}\put(207,56){\color{violet!85!black}\tiny 29.5}
+  \put(213,64){\color{pink!75!black}\tiny 28.3}\put(219,72){\color{blue!80!black}\tiny 28.7}
+  \put(271,57){\color{gray!70}\tiny 25.6}\put(277,61){\color{violet!85!black}\tiny 27.8}
+  \put(283,65){\color{pink!75!black}\tiny 26.7}\put(289,69){\color{blue!80!black}\tiny 27.0}
+  % Dataset labels.
+  \put(72,8){\makebox(0,0){\scriptsize Clipart1k}}
+  \put(145,8){\makebox(0,0){\scriptsize DeepFish}}
+  \put(215,8){\makebox(0,0){\scriptsize NEU-DET}}
+  \put(282,8){\makebox(0,0){\scriptsize UODD}}
+\end{picture}
+}%
+\caption{Compact 5-shot component ablation on the four domains with completed runs. FFCP, CHSD, and ATAR are added cumulatively to the Grounding DINO baseline. The baseline values are taken from Table~\ref{tab:main_comparison}; the FFCP, FFCP+CHSD, and Full values are the seed-averaged mAP values of the current run workbook.}
+\label{fig:ablation_map}
+\end{figure}

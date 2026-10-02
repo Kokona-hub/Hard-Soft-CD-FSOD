@@ -1,0 +1,6 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We introduced support-induced context leakage, a phenomenon in which non-category support factors perturb predictions for an unchanged query after few-shot adaptation. A controlled study on Clipart1k and NEU-DET measures classification and localization drift beyond training-seed variation and shows that intervention severity depends on the target domain. Based on this observation, we proposed a knowledge-enhanced Hard-Soft framework: FFCP identifies context-sensitive directions, CHSD separates an identity anchor from context-cleaned target appearance, and ATAR uses their agreement to authorize a bounded correction only for uncertain queries.
+
+Experiments across six CD-FSOD benchmarks evaluate whether regulating support knowledge improves detection accuracy without destabilizing a strong pretrained detector. Rather than being transferred as an unrestricted prototype, target-domain evidence should first be tested, decomposed, and authorized according to its reliability and the uncertainty of the current query. This principle provides a practical route toward reliable vision-language detector adaptation under scarce supervision.

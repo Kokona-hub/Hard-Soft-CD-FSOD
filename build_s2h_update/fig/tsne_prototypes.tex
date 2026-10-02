@@ -1,0 +1,19 @@
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{fig/fig3_tsne.pdf}
+    \caption{\textbf{Query-level behaviour of the full model against the baseline.}
+    The two left panels are a single joint t-SNE fit of the final decoder query
+    features (Clipart1k, 5-shot, 100 images, seed 3407; perplexity 30, PCA
+    initialization, seed 0). Both panels contain the \emph{same} $155$ queries - the
+    intersection over panels at score threshold $0.3$, in identical row order - so
+    the comparison is query-for-query. Filled triangles are queries matched to a
+    ground-truth box (same category, IoU $\ge 0.5$), hollow circles are
+    high-confidence unmatched queries, and colours denote categories. The third
+    panel shows the paired per-query score margin $s_{gt}-\max_{c\neq gt}s_c$ with a
+    bootstrap 95\% CI over queries; the fourth shows the matched/unmatched flips of
+    the same queries with an exact McNemar test. On these identical queries the full
+    model matches $49$ objects against $32$ for the baseline ($32$ gained, $15$
+    lost, net $+17$, $p=0.019$), while the margin of the $17$ queries matched by
+    both models is unchanged ($-0.005$, CI $[-0.048,0.036]$).}
+    \label{fig:tsne}
+\end{figure*}

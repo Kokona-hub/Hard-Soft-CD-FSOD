@@ -1,0 +1,748 @@
+===== PAGE 1 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Trust What You Transfer: Knowledge-Enhanced Hard-Soft Reasoning for
+Cross-Domain Few-Shot Object Detection
+Anonymous CVPR submission
+Paper ID *****
+Abstract
+001 Cross-domain few-shot object detection (CD-FSOD)
+002 adapts a pretrained detector to unseen domains us-
+003 ing only a few labeled examples. Existing meth-
+004 ods transfer visual prototypes, generated data, or
+005 multimodal prompts, but often treat every sup-
+006 port factor as valid adaptation evidence. We iden-
+007 tify support-induced context leakage: changing only
+008 the support background can alter query classifica-
+009 tion and localization, even when the query image
+010 and support foreground remain fixed. We propose
+011 a knowledge-enhanced Hard-Soft framework that reg-
+012 ulates both the evidence being transferred and its
+013 authority over model decisions. Foreground-Frozen
+014 ContextProbing(FFCP)estimatesclass-wisecontext-
+015 sensitive subspaces through label-preserving support
+016 interventions. Context-Constrained Hard-Soft Decom-
+017 position(CHSD)constructsaHardidentityanchorand
+018 a reliability-weighted Soft target-domain prototype af-
+Figure 1. Motivation: support-induced context leakage.
+019 ter removing context-sensitive directions. Asymmet-
+Top: treating every support factor as valid evidence lets
+020 ric Task-Authority Routing (ATAR) uses Hard–Soft
+category-irrelevant context reach the query decision. With
+021 agreementasareliabilitysignalandappliesabounded
+thesupportforeground,box,andqueryfixed,changingonly
+022 cosine correction only to uncertain detector queries. thesupportcontextalreadyshiftstheconfidenceand,inthe
+023 Thecorrectioniszeroatinitializationandleavesthelo- last row, the predicted category. Bottom: our framework
+024 calization branch unchanged. The full model, denoted separates category identity from domain appearance. A
+025 S2H-CD-FSOD, is evaluated on six CD-FSOD bench- Hard token carries context-invariant identity, a Soft token
+026 marksunder1-,5-,and10-shotprotocols. Acontrolled carriesonlycontext-cleanedtargetappearance,andtheau-
+027 study on Clipart1k and NEU-DET separates context- thority routing decides how far either token may move the
+028 inducedcategoryandboxdriftfromtraining-seedvari- decision. Solidanddashedarrowsdenoteretainedandsup-
+029 ation, and a compact set of ablations and qualitative pressed influences.
+030 comparisons clarifies when support evidence helps and
+031 when its authority should be suppressed.
+ages remain brittle in aerial, industrial, underwater, 036
+and artistic domains, which differ in viewpoint, scale, 037
+1. Introduction texture, illumination, and scene composition. Because 038
+032
+dense annotation in these domains is expensive, cross- 039
+033 Pretrainingonlarge-scalevisionandvision-language domainfew-shotobjectdetection(CD-FSOD)seeksto 040
+034 data has substantially improved object detection [1, adaptasource-pretraineddetectorusingonlyafewla- 041
+035 17, 29]. Nevertheless, detectors trained on natural im- beled examples per category [3, 14]. 042
+1
+===== PAGE 2 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+043 Recent work employs feature caching and sparse score changes. The method does not discard target- 096
+044 adaptation [7, 8], augmentation and retrieval-guided domain evidence; it preserves useful foreground vari- 097
+045 generation [14, 19], foundation-model experts [15, 27], ation while restricting unsupported category correc- 098
+046 ormultimodalprototypesandvisualprompts[2,9,22]. tions. 099
+047 These methods share a common premise: scarce tar- Our contributions are summarized as follows: 100
+048 get examples contain useful domain evidence. This
+049 premise, however, is incomplete. A support image • We identify support-induced context leakage and 101
+050 containscategoryidentity,relevantforegroundappear- introduce a foreground-preserving, fixed-query pro- 102
+051 ance, and incidental scene context. A DIOR airplane, tocol that separates context effects from ordinary 103
+052 forexample,providesausefulnear-nadirsilhouetteand training-seed variation, verifying the phenomenon 104
+053 small-object texture, but may also appear alongside in both artistic and industrial target domains. 105
+054 runwaysorbuildingsthatdonotdefinethecategory. A • We propose FFCP and CHSD to estimate context- 106
+055 mixed prototype can improve domain alignment while sensitivedirectionsandsequentiallydecomposesup- 107
+056 allowingsuchincidentalcontexttoshiftthepretrained portevidenceintoboundedHardidentityknowledge 108
+057 category boundary. and context-cleaned Soft appearance knowledge. 109
+• We introduce ATAR, a reliability-constrained 110
+058 We investigate this failure mode through the con-
+Grounding DINO interface that uses Hard–Soft 111
+059 trolled intervention shown in Fig. 1. We preserve the
+agreement and query uncertainty to bound class- 112
+060 support foreground, bounding box, scale, and query
+score correction while preserving the baseline local- 113
+061 set, changing only the pixels outside a protected sup-
+ization path. We evaluate its accuracy and context 114
+062 port region. Across Clipart1k and NEU-DET, this in-
+robustness across six CD-FSOD benchmarks. 115
+063 tervention alters category distributions and predicted
+064 boxes beyond the variation induced by training seeds.
+065 We refer to this phenomenon as support-induced con- 2. Related Work
+116
+066 text leakage. Its severity is domain dependent: neu-
+067 tralization is the most disruptive intervention for sev- 2.1.Few-ShotandCross-DomainDetection 117
+068 eral NEU-DET diagnostics, whereas mismatched con-
+069 text causes the clearest aggregate degradation on Cli- Few-shot object detection learns novel categories 118
+070 part1k. Context sensitivity therefore reflects the in- from scarce annotations. Early meta-learning ap- 119
+071 teraction among support evidence, domain statistics, proaches condition a detector on support features, 120
+072 and detector adaptation, rather than a fixed ranking whereas transfer-learning methods show that care- 121
+073 of corruption severity. fully constrained fine-tuning can be surprisingly com- 122
+074 Thisobservationshiftstheadaptationquestionfrom petitive. Representative methods include TFA [23], 123
+075 how much target knowledge can be injected? to when FSCE [21], and DeFRCN [20], which study restricted 124
+076 shouldtargetknowledgebeallowedtoalteradecision? classifier adaptation, contrastive proposal representa- 125
+077 Weaddressthisquestionwiththeknowledge-enhanced tions, and decoupled classification and localization, re- 126
+078 Hard-SoftframeworkillustratedinFig.2. Foreground- spectively. These methods generally assume that base 127
+079 Frozen Context Probing (FFCP) estimates where and and novel data originate from the same domain. 128
+080 to what extent context enters each category repre- CD-FSOD further introduces a severe source–target 129
+081 sentation. Context-Constrained Hard-Soft Decompo- domain shift. CD-ViTO [3] established a six-domain 130
+082 sition (CHSD) constructs a Hard identity anchor and benchmark and enhanced an open-set detector with 131
+083 a reliability-weighted Soft target-domain prototype af- target instances. Subsequent work caches target fea- 132
+084 terremovingcontext-sensitivedirectionsfromtheorig- tures [7], searches for foundation-model augmenta- 133
+085 inal support foreground. Asymmetric Task-Authority tions[19],retrievescompositionaldata[14],orexploits 134
+086 Routing(ATAR)usesagreementbetweenthesetwoes- style augmentation and sparse target instances [8, 26]. 135
+087 timatestodetermineprototypereliability,thenapplies VFM-MoE [15] combines DETR with foundation- 136
+088 aboundedcosinecorrectiononlytouncertainGround- model experts, while Yu et al. [27] show that pro- 137
+089 ing DINO queries. The framework retains a single de- gressive schedules and decoder diversity are critical to 138
+090 tector and preserves its original localization path. stable few-shot fine-tuning. Target-Domain Astigma- 139
+091 We evaluate the resulting method across six target tism[9], incontrast, diagnosesdispersedattentionand 140
+092 domainsandthreeshotregimes. Beyondaggregatede- refines both foreground and peripheral context. Our 141
+093 tection accuracy, we measure fixed-query context sen- work is complementary to these approaches: we exam- 142
+094 sitivity and inspect whether improvements arise from ine whether each support-derived factor receives deci- 143
+095 reduced background responses or from indiscriminate sion authority commensurate with its reliability. 144
+2
+===== PAGE 3 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+2.2. Vision-Language Detectors and Suppo1r9t7 14d5itional labeled data. FFCP measures prediction drift
+146 Knowledge across support conditions, CHSD excludes context- 198
+sensitivedirectionsfromtarget-appearanceknowledge, 199
+147 Open-vocabularydetectorstransfercategoryseman-
+andATARcontractsSoftclassificationauthoritywhen 200
+148 tics by aligning visual regions with language. Rep-
+support evidence is unstable. Together, these modules 201
+149 resentative directions include region-text knowledge
+connect support-side sensitivity to detection accuracy, 202
+150 distillation in ViLD [5], region-level language-image
+calibration, and selective risk. 203
+151 pretraining in RegionCLIP [31], end-to-end multi-
+152 modal decoding in MDETR [10], conditional match- 3. Method
+204
+153 ing in OV-DETR [28], and image-text prompting in
+154 OWL-ViT [18]. On the detection side, Deformable Figure2presentsourknowledge-enhancedHard-Soft 205
+155 DETR [33], DAB-DETR [16], and DN-DETR [11] im- framework. Weformulatetarget-domainadaptationas 206
+156 prove the convergence and query design of the original a constrained knowledge update rather than a com- 207
+157 DETR formulation [1]. GLIP [12] formulates detec- plete prototype transfer. Foreground-Frozen Context 208
+158 tion as phrase grounding, while Grounding DINO [17] Probing (FFCP) measures how support context per- 209
+159 combinesencoder-levelfeaturefusion,language-guided turbs an otherwise unchanged foreground representa- 210
+160 query selection, and cross-modal decoder interaction tion. Context-Constrained Hard-Soft Decomposition 211
+161 with the DINO detector [29]. Such models provide (CHSD) then constructs a Hard identity anchor and 212
+162 strong initializations for CD-FSOD because category a reliability-weighted, context-cleaned Soft prototype. 213
+163 names remain meaningful across domains; however, Finally, Asymmetric Task-Authority Routing (ATAR) 214
+164 text alone cannot capture target-specific appearance. uses Hard–Soft agreement and baseline-query uncer- 215
+165 Recent methods therefore inject visual support tainty to bound a cosine class correction in a single 216
+166 knowledge. LMP [22] constructs class prototypes and Grounding DINO detector [17]. Hard knowledge con- 217
+167 query-derived hard negatives in a visual branch, while trolswhethertheSoftdirectionistrustworthy;itisnot 218
+168 PET-DINO [2] unifies instance- and category-level vi- injected as an independent classifier, and the baseline 219
+169 sual cues through prompt-enriched training. Target- localization path remains unchanged. We refer to the 220
+170 DomainAstigmatism[9]jointlymodelsforegroundpro- complete instantiation as S2H-CD-FSOD. 221
+171 totypes, contextual background, and text. These ap-
+172 proaches demonstrate that support features can com- 3.1.Preliminaries 222
+173 plement language, but they typically optimize each LetC denotethetarget-categoryset. Followingstan- 223
+174 prototype as a complete representation. In contrast, dard CD-FSOD protocols [3, 27], the support set of 224
+175 CHSD distinguishes the component that defines cate- category c and the predictions for an unlabeled query 225
+176 gory identity from the component that captures nec- image x q are 226
+177 essary domain appearance. ATAR further controls the
+SK ={(x ,b ,c)}K , K ∈{1,5,10},
+178 stage at which, and the magnitude with which, each c c,i c,i i=1
+179 component enters the detector. Yb ={(ˆb ,yˆ ,pˆ )}M′ . (1) 227
+q j j j j=1
+180 2.3.ContextSensitivityandPredictionReliability where x c,i and b c,i denote a support image and its 228
+181 Context can support object-boundary estimation annotated bounding box, respectively. At inference 229
+182 and category disambiguation, yet it can also become time, neither query boxes nor query labels are avail- 230
+183 a shortcut that produces background false positives able. Category names are obtained from the support 231
+184 under distribution shift. Existing CD-FSOD methods annotations and used to form the textual prompt, but 232
+185 use negative regions as contrastive cues [22], explicitly support knowledge never directly assigns a label to a 233
+186 model peripheral background [9], or evaluate robust- query object. 234
+187 ness on mixed-domain queries [27]. Confidence cali- Grounding DINO aligns image regions with textual 235
+188 bration offers a complementary perspective: a detec- phrases and performs language-guided query selection 236
+189 tor should not only be accurate, but also align con- before Transformer decoding [17]. We keep this open- 237
+190 fidence with correctness and identify high-risk predic- vocabularypathunchangedandapplysupportcalibra- 238
+191 tions [4, 6]. tion only after the ordinary decoder logits are avail- 239
+192 Our focus differs in two respects. First, we inter- able. For each category, our support-side procedure 240
+193 vene on the support set rather than the query: the constructs 241
+194 query remains fixed while the context outside the pro- K c =(h c ,s c ,κc c tx), (2) 242
+195 tected support foreground changes. Second, the inter- where h c is the Hard identity anchor, s c denotes Soft 243
+196 vention serves as a diagnostic probe rather than as ad- foreground-appearance knowledge, and κctx ∈ [0,1) 244
+c
+3
+===== PAGE 4 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Figure 2. Knowledge-enhanced Hard–Soft framework. (1) Foreground-Frozen Context Probing (FFCP) modifies only the
+support context and estimates a class-wise context-sensitive subspace. (2) Context-Constrained Hard–Soft Decomposition
+(CHSD)buildsaboundedHardidentityanchorandacontext-cleanedSoftappearanceresidual. (3)GroundingDINOfirst
+produces its ordinary query predictions. (4) Asymmetric Task-Authority Routing (ATAR) uses Hard–Soft agreement and
+baseline-query uncertainty to authorize a bounded cosine class correction while leaving the localization output unchanged.
+measuresthedependenceofthesupportrepresentati2o6n0 24v5iewpoint,scale,resolution,andforegroundtexturere-
+246 on external context. mainunchanged. These intervenedviewsserveonlyas 261
+probes and are never counted as additional shots. 262
+247 3.2.Foreground-FrozenContextProbing Theoriginalimage,itsintervenedcounterpart,anda 263
+248 Although support features are pooled from anno- reconstructioncontrolareprocessedbythesamefrozen 264
+249 tated boxes, the visual encoder can still transmit in- visualencoder. RoIAlignandattentionpoolingextract 265
+250 formation from runways, water, roads, or industrial the target representations f c,i , ˜f c ( , r i ), and f c r , e i c from the 266
+251 substrates. FFCP estimates this influence through same box. The reconstruction control uses the same 267
+252 foreground-preserving interventions. We dilate each synthesis pipeline but reinserts the original context. 268
+253 supportboxtoobtainaprotectionmaskM c,i thatcov- We define the resulting context-induced drift as 269
+2 2 5 5 4 5 e su rs pp th o e rt t i a m rg a e g t e a is nd its boundary. The r-th intervened d( c r ,i ) = (cid:0) f c,i −˜f c ( , r i ) (cid:1) − (cid:0) f c,i −f c r , e i c (cid:1) , (4) 270
+The second term removes drift caused by composit- 271
+256 x˜( c r ,i ) =M c,i ⊙x c,i +(1−M c,i )⊙B i (r), (3) ing and resampling. A nonzero residual indicates that 272
+external context perturbs the protected target repre- 273
+257 where B(r) is obtained through in-domain background sentation. 274
+i
+258 exchange, category-mismatched exchange, or context Let D c stack all drift vectors for category c. We 275
+259 neutralization. The protected pixels, box geometry, retain its leading right-singular vectors and quantify 276
+4
+===== PAGE 5 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+the normalized leakage energy as 318 27o7ntoanℓ 2 ballbeforebeingaddedtothebasecategory
+embedding t0: 319
+Uctx =TopSVD(D ,r), c
+278 e c c c tx = K 1 R X i,r ∥(U ∥ c f c c c t , x i ) ∥ ⊤ 2 2 d + ( c r , ϵ i )∥2 2 , (5) ∆h V c c = =Π {l ∥ | ·∥ q 2 c ≤ ,l ρH ≥ ξ H X }, w c,l a w c c ,l ,l! = , softmax l∈V c (q c,l /T q ),
+κctx =1−exp(−ectx).
+l∈V
+c
+c c h =Norm(t0+∆h ).
+c c c
+279 The columns of Uctx describe where context enters (7) 320
+c
+280 the target representation, while κc c tx quantifies how Ifnoattributequalifies,weset∆h c =0andrecoverthe 321
+281 strongly the support depends on context. For 1-shot original category representation. The radius ρ H pre- 322
+282 adaptation, we restrict the rank and shrink the class- ventsafewsupportinstancesfromarbitrarilyrewriting 323
+283 specific estimate toward a cross-category drift sub- pretrained category semantics. 324
+284 space. As K increases, the class-specific estimate re- Hard knowledge should not absorb target-domain 325
+285 ceives greater weight. appearance factors such as nadir viewpoints, com- 326
+pressed scale, blur, or low-resolution texture. We map 327
+286 3.3. Context-Constrained Hard-Soft Decomposi- the base identity and accepted attributes into the vi- 328
+287 tion sualspaceandorthonormalizethemtoobtaintheiden- 329
+288 FFCPidentifiescontext-sensitivedirectionsbutdoes tity subspace UH c . We remove context leakage only 330
+289 not determine category identity. CHSD therefore de- within the identity complement, thereby preventing 331
+290 composes support knowledge in two stages: it first context suppression from erasing category-defining di- 332
+291 identifies invariant category factors and then extracts rections. The Soft residual for support instance i is 333
+292 adaptable target-domain appearance. PH =UH(UH) ⊤ ,
+293 For category c, we obtain a compact candidate set c c (cid:2) c (cid:3)
+294 from its name, synonyms, and deterministic structural U¯c c tx =Orth (I− (cid:0) PH c )Uc c tx , (cid:1) (8) 334
+295 attributes. For example, valid identity hypotheses for ra c, p i p =(I−PH c ) I−U¯c c tx(U¯c c tx) ⊤ f c,i .
+296 an airplane include wings, a fuselage, and a tail, but
+Counterfactual background features never enter Soft 335
+297 exclude a top-down view, low resolution, or a runway.
+knowledge. FFCP identifies the directions to be re- 336
+298 Thesecandidatesaredrawnfrompredefinedstructural
+moved, whereas the retained appearance is always de- 337
+299 templates rather than free-form target-domain genera-
+rived from the original support foreground. 338
+300 tion. Recent CD-FSOD methods have demonstrated
+We robustly aggregate the residuals and apply shot- 339
+301 that support prototypes can complement pretrained
+aware shrinkage: 340
+302 textual semantics [9, 22]; CHSD additionally deter-
+(cid:0) (cid:1)
+ξ
+303 mines whether each candidate is suﬀiciently reliable s =(1−α )RobustMean {rapp}K , α = .
+304 to alter category knowledge. After mapping the tex- c K c,i i=1 K K+ξ
+305 tualandvisualfeaturesintothenormalizedGrounding (9) 341
+306 DINO alignment space, we measure counterfactual in- This estimator remains conservative in the 1-shot set- 342
+307 stabilityanddefinethequalificationscoreforattribute tingandplacesprogressivelygreatertrustinthetarget- 343
+308 a c,l as domain residual as more support instances become 344
+X(cid:12) (cid:12) available. It changes only the stability of knowledge 345
+∆cf = 1 (cid:12) (cid:12)sim(a ,f )−sim(a ,˜f(r)) (cid:12) (cid:12), estimation; the network architecture remains identical 346
+c,l KR c,l c,i c,l c,i across the 1-, 5-, and 10-shot protocols. 347
+i,r (cid:2) (cid:3)
+309 q = sim(a ,¯ffg)−λ sim(a ,¯fctx) (6) 3.4.AsymmetricTask-AuthorityRouting 348
+c,l c,l c b c,l c +
+−λ ∆cf −λ κctx. ATAR connects the support-side decomposition to 349
+cf c,l κ c
+querydetectionwithoutgrantinganoisyfew-shotpro- 350
+310 Thefourtermsenforceforegroundsupport,rejectposi- totype unrestricted authority. Grounding DINO first 351
+311 tivecontextcorrelation,penalizeintervention-sensitive produces decoded query embeddings z j , boxes b j , and 352
+312 attributes, and reduce the qualification scores of cat- categorylogitsL0 fromtheordinarytextualprompts. 353
+j,c
+313 egories whose support is globally context dependent, The Hard anchor is used as a reliability signal rather 354
+314 respectively. Thus, κctx influences Hard construction than being injected into the text or added directly 355
+c
+315 rather than being used only at query time. to the logits. This preserves the pretrained vision– 356
+316 Only candidates whose scores exceed the threshold language boundary and lets support knowledge act 357
+317 ξ H areretained. Theirweightedaggregateisprojected only through a bounded calibration interface. 358
+5
+===== PAGE 6 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Forcategoryc,CHSDsuppliesaprototypereliabil3it9y7 35fr9omdestroyingausefulbaselineranking. Atinference,
+360 r c ∈[0,1]. We further measure the agreement betwe3e9n8 theknowledgetupleinEq.(2)isbuiltonceandcached.
+361 the Soft prototype and the Hard anchor: 399 Counterfactualviewsareusedonlyonthesupportside
+and never expose query labels or increase the number 400
+1+cos(s ,h )
+362 q c = 2 c c , r¯ c =r c q c . (10) of annotated instances. 401
+363 Thus, Hard knowledge does not vote for a class; it Properties and scope. Under a local additive rep- 402
+364 determines how much the corresponding Soft direc- resentation, the foreground-frozen difference cancels 403
+365 tion may be trusted. When the two support estimates identity and foreground appearance, while the re- 404
+366 disagree, the calibration authority contracts automat- construction control removes synthesis drift. Equa- 405
+367 ically. tion (12) gives an explicit correction bound, and 406
+368 We next restrict correction to uncertain detector Eqs.(10)–(11)makethatboundshrinkwithprototype 407
+369 queries. Letp0 j =max c σ(L0 j,c ). Thequeryauthorityis disagreement and baseline confidence. FFCP still as- 408
+sumes that the protection mask covers the discrimina- 409
+!
+θ−p0 tive target and that compositing artifacts remain con- 410
+370 u j =σ T j , g j,c =min(u j r¯ c ,g max ), (11) trolled; these assumptions are examined through the 411
+u controlled context study and supplementary sensitiv- 412
+ity analysis. 413
+371 where θ, T u , and g max are fixed threshold, tempera-
+372 ture, and authority ceiling. Confident baseline queries 4. Experiments 414
+373 receive almost no update, whereas uncertain queries
+374 can consult reliable target-domain evidence. We organize the experiments to mirror this narra- 415
+375 Finally, the class correction follows the Soft proto- tive: wefirstreportacontrolledsupport-contextstudy 416
+376 type direction: that establishes the motivating phenomenon, then 417
+the main comparison against state-of-the-art methods 418
+d j,c =cos(z j ,s c ), across six domains, followed by the prototype-space 419
+377 δ j,c =γg cls g j,c α c d j,c , (12) and hyper-parameter analyses, and finally a compo- 420
+nent ablation that connects the quantitative gains to 421
+L =L0 +δ , |δ |≤γg g α .
+j,c j,c j,c j,c cls max max the per-stage behavior of the detector. 422
+378 Here g cls is a learned sigmoid gate and α c ∈ [0,α max ] 4.1.ExperimentalSetup 423
+379 is a class-wise strength initialized to zero. Conse-
+Datasets. Following the established CD-FSOD 424
+380 quently, the enhanced model is identical to the base-
+benchmark [3, 9, 22], we evaluate our method on six 425
+381 line at initialization and can depart from it only along
+target domains: ArTaxOr (photorealistic arthropods), 426
+382 a class prototype direction. The current model is
+Clipart1k (cartoon imagery), DIOR (aerial scenes), 427
+383 classification-only: it retains Grounding DINO’s box
+DeepFish (low-visibility aquatic imagery), NEU-DET 428
+384 prediction unchanged. This isolates the proposed re-
+(industrial defects), and UODD (underwater objects). 429
+385 liability mechanism from an additional localization
+Thesedatasetscontain7,20,20,1,6,and3categories, 430
+386 adapter.
+respectively, and vary substantially in texture, scale, 431
+387 3.5.ModelTrainingandTesting viewpoint, and background statistics. 432
+388 We retain the standard bipartite matching and de-
+Few-shot protocol. We report results for 1-, 5-, and 433
+389 tection objectives used by DETR-family detectors [1,
+10-shot adaptation, using five deterministic support 434
+390 17, 29]. Hungarian matching and the phrase-level fo-
+splits in each setting. All methods share the same cat- 435
+391 cal, ℓ 1 , and GIoU losses are unchanged. We add a egory set, support splits, query images, optimization 436
+392 small residual penalty and distill the baseline category
+budget, and augmentation policy. We fix checkpoints 437
+393 distribution on the queries selected by Eq. (11):
+and hyperparameters without using test annotations 438
+L =λ Lphrase+λ L +λ L from the target domains. For the densely annotated 439
+total cls focal 1 1P g GIoU DIOR dataset, we select K support images per cate- 440
+394 +λ ∥δ∥ +λ j u Pj D KL (p0 j ∥p j ) . (13) goryandretainallannotationsintheirunion,prevent- 441
+res 1 con u +ϵ ingco-occurringobjectsfrombeingmislabeledasback- 442
+j j
+ground. We evaluate every method under this image- 443
+395 The first auxiliary term discourages unnecessary score level protocol, while the remaining datasets follow the 444
+396 changes;thesecondpreventslow-confidencecalibration standard K-instance protocol. 445
+6
+===== PAGE 7 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Metrics. We evaluate detection performance usi4n9g4 44iz6ed in both runs being compared, we measure
+447 COCO mAP over IoU thresholds from 0.50 to 0.95, X
+1
+448 AP50, AP75, and area-stratified AP. We quantify sup- CSS = D (porig∥pcond),
+4 4 4 5 9 0 p Se o n rt sit s i e v n it s y iti S v c i o ty res us ( i C n S g S c -c la ls ss a i n fi d ca C ti S o S n -b a o n x d ), b c o a x teg C o o r n y t fl ex ip t cls N 1 X n h KL n n i (14) 495
+CSS = 1−IoU(ˆborig,ˆbcond) .
+451 rate, localization flip rate, and the number of back- box N n n
+452 ground false positives. We assess confidence reliabil- n
+453 ity using ECE [6], negative log-likelihood (NLL), the To account for ordinary optimization variability, 496
+454 Brierscore,andtheareaundertherisk–coveragecurve CSS-seed compares independent training seeds un- 497
+455 (AURC) [4]. Unless stated otherwise, all tables report der the same support condition, and CSS-excess = 498
+456 themeanandsamplestandarddeviationoverfivesup- CSS-context−CSS-seed. Weobtain95%confidencein- 499
+457 port splits. tervals from 2,000 query-image cluster-bootstrap sam- 500
+ples. Detection differences are paired by training seed. 501
+Context changes fixed-query decisions. Table 1 sup- 502
+458 Implementation details. We use Grounding DINO
+portsthreeobservations. First,everyinterventionpro- 503
+459 with a Swin-B image encoder and a BERT-base
+duces positive CSS-box excess in both domains, with 504
+460 language encoder [17]. All variants are initialized from
+all confidence intervals excluding zero. Support con- 505
+461 the public Swin-B checkpoint groundingdino_swinb
+text therefore alters localization beyond seed-induced 506
+462 _cogcoor_mmdet-55949c9c.pth, matching the
+463 Grounding DINO† configuration used by Domain- variation, even though the query remains unchanged. 507
+Second, theclassificationeffectsareselective. Neutral- 508
+464 RAG [14]. We optimize with AdamW using a learning
+465 rate of 1×10−4, weight decay of 1×10−4, and a 0.1 ization and class mismatch produce positive CSS-cls 509
+excessinbothdomains,whereastheconfidenceinterval 510
+466 learning-rate multiplier for the image backbone. The
+for same-domain exchange overlaps zero on Clipart1k. 511
+467 training batch size is four and gradients are clipped
+Third, task-level degradation follows the same general 512
+468 to a maximum norm of 0.1. We adopt CachedMo-
+pattern. Class mismatch reduces Clipart1k mAP by 513
+469 saic, YOLOXHSVRandomAug, CachedMixUp, and
+2.70 points, while neutralization and class mismatch 514
+470 multi-scale resize/crop augmentation. Clipart1k and
+reduce NEU-DET mAP by 2.60 and 2.30 points, re- 515
+471 DeepFish are fine-tuned for five epochs, while Ar-
+spectively. 516
+472 TaxOr, DIOR, NEU-DET, and UODD are fine-tuned
+473 for 30 epochs. Support-context views are rendered
+474 online from immutable images and compact interven- Theinterventionorderingisdomaindependent. Class 517
+475 tion recipes. FFCP knowledge is computed once for mismatchisnotuniversallythestrongestperturbation. 518
+476 each support split and then cached. We use a fixed On NEU-DET, neutralization produces the largest 519
+477 FFCPrank, Hardupdateradius, routingtemperature, CSS-clsexcess,CSS-boxexcess,andlocalizationdegra- 520
+478 and Soft authority budget across domains. Their dation. Its joint-localization rate is 0.593, its category 521
+479 sensitivity is analyzed in Sec. 4.5. flip rate is 0.542, its localization flip rate is 0.271, and 522
+its CSS–flip correlation is 0.530. The corresponding 523
+CSS–flip correlations are 0.382 for same-domain ex- 524
+480 4.2.ControlledSupport-ContextStudy change and 0.405 for class mismatch. These results 525
+support treating context dependence as a measured 526
+481 Protocol. We isolate the motivating phenomenon us- propertyofthesupportsetratherthanimposingafixed 527
+482 inga5-shotsupportsplitandthreetrainingseeds. The ranking of intervention severity. 528
+483 query set, support foreground pixels, protected boxes,
+484 image dimensions, pretrained weights, optimizer, and 4.3.ComparisonwithStateoftheArt 529
+485 augmentation sequence remain fixed. We compare We compare our approach with representative 530
+486 foursupportconditions: originalcontext,same-domain transfer-learning, generation-based, foundation-model, 531
+487 background exchange, outside-box neutralization, and and multimodal-prototype methods, including CD- 532
+488 category-mismatched background exchange. Clipart1k ViTO [3], Domain-RAG [14], VFM-MoE [15], Target- 533
+489 contains 500 query images and 20 classes, whereas DomainAstigmatism[9],progressiveGroundingDINO 534
+490 NEU-DET contains 180 query images and 6 classes. fine-tuning[27],PET-DINO[2],andLMP[22]. Table2 535
+491
+Eachdomainthereforecomprises4×3=12condition–
+follows the reporting format adopted by recent CD- 536
+492 seed runs. FSOD studies. We report the complete 1/5/10-shot 537
+493 For fixed query ground-truth objects that are local- matrixanddiscussgainsonlywhentheyaresupported 538
+7
+===== PAGE 8 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Table 1. Controlled support-context study. Detection values are reported as the mean ± sample standard deviation over
+three training seeds (%). The ∆ values denote paired changes from the Original condition with 95% bootstrap CIs. The
+CSS columns report excess drift with query-image cluster-bootstrap CIs.
+Domain Condition mAP ∆mAP AP75 ∆AP75 CSS-cls-excess CSS-box-excess
+Clipart1k Original 39.17±1.50 – 45.63±1.80 – – –
+Same-domain 38.83±.80 −.33[−1.10,1.20] 45.27±1.00 −.37[−1.20,1.30] .000075[−.000019,.000164] .00783[.00602,.00957]
+Neutralized 36.57±1.56 −2.60[−4.20,.30] 42.53±1.76 −3.10[−4.80,.30] .000235[.000127,.000352] .01064[.00873,.01245]
+Class-mismatch 36.47±2.12 −2.70[−4.90,−.90] 42.80±2.42 −2.83[−5.30,−.70] .000106[.000010,.000200] .00529[.00362,.00693]
+NEU-DET Original 4.43±.65 – 3.93±.64 – – –
+Same-domain 3.07±.95 −1.37[−2.40,.00] 2.53±.86 −1.40[−2.60,.10] .000081[.000048,.000119] .02904[.02011,.03858]
+Neutralized 1.83±.15 −2.60[−3.10,−2.00] 1.23±.15 −2.70[−3.00,−2.10] .000145[.000097,.000199] .05862[.04777,.07002]
+Class-mismatch 2.13±.15 −2.30[−2.80,−1.70] 1.60±.10 −2.33[−2.80,−1.50] .000042[.000000,.000083] .04010[.02984,.05021]
+bythecorrespondingthree-seedaggregates. Theana5ly7-7 53T9he gain thus comes from high-confidence responses
+540 sisisorganizedaroundthelow-shotregime,wherecon- that the baseline leaves unmatched rather than from 578
+541 ventional support prototypes are most vulnerable to sharper evidence on the objects it already finds, which 579
+542 sample-specific context, and around the scaling trend is the query-level counterpart of the false-positive re- 580
+543 as additional target-domain evidence becomes avail- duction in Fig. 6. 581
+544 able.
+4.5.HyperparameterSensitivityAnalysis 582
+545 Grounding DINO support scaling. The Grounding We investigate five quantities: the FFCP context 583
+546 DINO† rows establish the strength and scaling behav- rank, the Hard update radius ρ H , the authority ceil- 584
+547 iorofthecommonSwin-Bbaseline. Onthefine-grained ing g max , the uncertainty threshold θ, and the consis- 585
+548 ArTaxOrbenchmark,mAPrisesfrom26.3at1shotto tency weight λ con . As shown in Fig. 4, each sweep 586
+549 68.4 and 73.0 at 5 and 10 shots, respectively, show- varies one quantity on 5-shot Clipart1k while the sup- 587
+550 ing the value of additional target-domain evidence for port split, checkpoint, and optimization budget stay 588
+551 closelyrelatedcategories. DeepFishexhibitsadifferent fixed. Performance is stable over a wide central re- 589
+552 profile (36.4, 41.6, and 38.5 mAP), underscoring that gionanddegradesonlyattheextremes: acontextrank 590
+553 support-set composition and domain appearance can thatistoosmallcannotrepresentdomain-specificcon- 591
+554 make the benefit of extra exemplars non-monotonic. text,whereasarankthatistoolargeremovesidentity- 592
+555 Our method consistently improves upon this strong relevant appearance, and a large authority ceiling lets 593
+556 foundation by retaining discriminative target appear- unreliable prototypes rewrite confident decisions. We 594
+557 ance while removing the context-sensitive component therefore select one shared cross-domain configuration 595
+558 that otherwise perturbs fixed-query decisions. from the central stable region instead of tuning a sep- 596
+arate setting per domain. 597
+559 4.4.Prototype-SpaceVisualization
+4.6.AblationStudy 598
+560 Fig. 3 projects the final decoder query features of
+561 the baseline and the full model with a single joint t- We evaluate four cumulative variants under the 5- 599
+562 SNEfit,andeverypanelcontainsthesame155queries, shot protocol: the fine-tuned Grounding DINO base- 600
+563 so the comparison is query-for-query rather than a line,FFCP,FFCP+CHSD,andthecompleteS2H-CD- 601
+564 comparison of two different point sets. Triangles are FSOD model. All variants share the support splits, 602
+565 queries matched to ground truth, hollow circles are optimization budget, and evaluation code. Fig. 5 sum- 603
+566 high-confidence unmatched queries, and colors denote marizes the mean mAP of each variant as a com- 604
+567 categories. Unlike closed-set classification, the classes pact cumulative bar group, and Fig. 6 visualizes the 605
+568 do not collapse into globally separated clusters, which effect of each stage on representative queries. The 606
+569 is expected for an open-vocabulary detector under do- cumulative ordering follows the pipeline: FFCP esti- 607
+570 main shift; we therefore read the figure quantitatively mates context-sensitive directions, CHSD builds the 608
+571 instead of trusting its silhouette. On the identical identity/appearance decomposition, and ATAR de- 609
+572 query set the full model matches 49 objects against cides how much authority the retained evidence re- 610
+573 32 for the baseline (32 queries become matches, 15 are ceives on each query. 611
+574 lost, net +17, exact McNemar p=0.019), whereas the Fig. 5 reports the quantitative gains for the four do- 612
+575 scoremarginofthe17queriesmatchedbybothmodels mains with completed ablation runs (Clipart1k, Deep- 613
+576 is statistically unchanged (−0.005, CI [−0.048,0.036]). Fish, NEU-DET, and UODD); the baseline bars use 614
+8
+===== PAGE 9 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Table 2. Comparison on six CD-FSOD target domains under the 1/5/10-shot settings. All values are mAP (%). Results
+ofpriormethods,theirbackbones,andtheGroundingDINO† referencearereproducedfromtheDomain-RAGcomparison
+protocol[14]. † denotesmethodsreproducedinDomain-RAG.ForOurs,onlydomainswithcompletedrunsarepopulated;
+the remaining cells are shown as —. — denotes an unreported value; NaN denotes an unavailable evaluation reported in
+the source paper.
+Shots Method Venue Backbone ArTaxOr Clipart1k DIOR DeepFish NEU-DET UODD Avg.
+Z/Shot GroundingDINO[17] ECCV’24 Swin-B 12.4 54.0 4.8 35.4 3.4 13.9 20.7
+Domain-RAG[14] NeurIPS’25 Swin-B
+Ours CVPR’26 Swin-B
+1 Meta-RCNN[25] ICCV’19 ResNet-50 2.8 — 7.8 — — 3.6 —
+TFAw/cos[23] ICML’20 ResNet-50 3.1 — 8.0 — — 4.4 —
+FSCE[21] CVPR’21 ResNet-50 3.7 — 8.6 — — 3.9 —
+DeFRCN[20] ICCV’21 ResNet-50 3.6 — 9.3 — — 4.5 —
+Distill-CDFSOD[24] ICASSP’23 ResNet-50 5.1 7.6 10.5 NaN NaN 5.9 —
+ViTDet-FT[13] ECCV’22 ViT-B/14 5.9 6.1 12.9 0.9 2.4 4.0 5.4
+Detic[32] ECCV’22 ViT-L/14 0.6 11.4 0.1 0.9 0.0 0.0 2.2
+Detic-FT[32] ECCV’22 ViT-L/14 3.2 15.1 4.1 9.0 3.8 4.2 6.6
+DE-ViT[30] arXiv’23 ViT-L/14 0.4 0.5 2.7 0.4 0.4 1.5 1.0
+CD-ViTO[3] ECCV’24 ViT-L/14 21.0 17.7 17.8 20.3 3.6 3.1 13.9
+GroundingDINO† [14,17] ECCV’24 Swin-B 26.3 55.3 14.8 36.4 9.3 15.9 26.3
+ETS† [14,19] CVPRW’25 Swin-B 28.1 55.8 12.7 39.3 11.7 18.9 27.8
+Domain-RAG[14] NeurIPS’25 Swin-B 57.2 56.1 18.0 38.0 12.1 20.2 33.6
+LMP(ours)[22] CVPR’26 Swin-B 58.5 58.6 17.2 36.6 13.3 21.6 34.3
+Ours CVPR’26 Swin-B — 56.4 — 71.6 12.0 23.4 —
+5 Meta-RCNN[25] ICCV’19 ResNet-50 8.5 — 17.7 — — 8.8 —
+TFAw/cos[23] ICML’20 ResNet-50 8.8 — 18.1 — — 8.7 —
+FSCE[21] CVPR’21 ResNet-50 10.2 — 18.7 — — 9.6 —
+DeFRCN[20] ICCV’21 ResNet-50 9.9 — 18.9 — — 9.9 —
+Distill-CDFSOD[24] ICASSP’23 ResNet-50 12.5 23.3 19.1 15.5 16.0 12.2 16.4
+ViTDet-FT[13] ECCV’22 ViT-B/14 20.9 23.3 23.3 9.0 13.5 11.1 16.9
+Detic[32] ECCV’22 ViT-L/14 0.6 11.4 0.1 0.9 0.0 0.0 2.2
+Detic-FT[32] ECCV’22 ViT-L/14 8.7 20.2 12.1 14.3 14.1 10.4 13.3
+DE-ViT[30] arXiv’23 ViT-L/14 10.1 5.5 7.8 2.5 1.5 3.1 5.1
+CD-ViTO[3] ECCV’24 ViT-L/14 47.9 41.1 26.9 22.3 11.4 6.8 26.1
+GroundingDINO† [14,17] ECCV’24 Swin-B 68.4 57.6 29.6 41.6 19.7 25.6 40.4
+ETS† [14,19] CVPRW’25 Swin-B 64.5 59.7 29.3 42.1 23.5 27.7 41.1
+Domain-RAG[14] NeurIPS’25 Swin-B 70.0 59.8 31.5 43.8 24.2 26.8 42.7
+LMP(ours)[22] CVPR’26 Swin-B 75.0 60.1 31.3 43.9 25.1 28.3 44.0
+Ours CVPR’26 Swin-B — 58.7 — 74.0 28.7 27.0 —
+10 Meta-RCNN[25] ICCV’19 ResNet-50 14.0 — 20.6 — — 11.2 —
+TFAw/cos[23] ICML’20 ResNet-50 14.8 — 20.5 — — 11.8 —
+FSCE[21] CVPR’21 ResNet-50 15.9 — 21.9 — — 12.0 —
+DeFRCN[20] ICCV’21 ResNet-50 15.5 — 22.9 — — 12.1 —
+Distill-CDFSOD[24] ICASSP’23 ResNet-50 18.1 27.3 26.5 15.5 21.1 14.5 20.5
+ViTDet-FT[13] ECCV’22 ViT-B/14 23.4 25.6 29.4 6.5 15.8 15.6 19.4
+Detic[32] ECCV’22 ViT-L/14 0.6 11.4 0.1 0.9 0.0 0.0 2.2
+Detic-FT[32] ECCV’22 ViT-L/14 12.0 22.3 15.4 17.9 16.8 14.4 16.5
+DE-ViT[30] arXiv’23 ViT-L/14 9.2 11.0 8.4 2.1 1.8 3.1 5.9
+CD-ViTO[3] ECCV’24 ViT-L/14 60.5 44.3 30.8 22.3 12.8 7.0 29.6
+GroundingDINO† [14,17] ECCV’24 Swin-B 73.0 58.6 37.2 38.5 25.5 30.3 43.9
+ETS† [14,19] CVPRW’25 Swin-B 70.6 60.8 37.5 42.8 26.1 28.3 44.4
+Domain-RAG[14] NeurIPS’25 Swin-B 73.4 61.1 39.0 41.3 26.3 31.2 45.4
+LMP(ours)[22] CVPR’26 Swin-B 75.1 62.6 40.4 44.4 25.7 31.6 46.6
+Ours CVPR’26 Swin-B — 60.6 — 73.6 34.3 29.5 —
+the corresponding Grounding DINO† values from Ta- 61in5dustrial defect boxes remain aligned with the anno- 625
+616 ble 2, and the remaining bars are the seed-averaged tated regions. These examples illustrate the kinds of 626
+617 mAP values of the current run workbook. AP50 and changesmeasuredbytheaggregateresultsratherthan 627
+618 AP75 are kept in the numerical tables rather than replacing the numerical comparison. 628
+619 duplicated as plots, and only completed runs appear.
+620 Fig. 6 presents qualitative 5-shot comparisons on Cli- 4.7.QualitativeAnalysis 629
+621 part1k, DeepFish, andNEU-DET.Theexamplesshow Following LMP [22], the main paper keeps a single 630
+622 three complementary effects of the cumulative stages: cross-domain visualization (Fig. 6) and defers the re- 631
+623 context-driven duplicate or category responses are re- maining imagery to the supplementary material. The 632
+624 duced,low-contrasttargetdetectionsareretained,a6n3d3 figure uses the same support split, checkpoint, prepro-
+9
+===== PAGE 10 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Baseline Full S2H-CD-FSOD
+32 matched, 123 unmatched 49 matched, 106 unmatched paired change, same queries match-status flips, same queries
++32
+[ m m e a a r n g i - n 0 ] . 0 F 0 u 5 ll S [- 2 0 H .0 - 4 C 8 D , - F + S 0 O .0 D 3 - 6 B ], a 4 s 7 e % lin u e p 30 u m n a m tc a h t e c d h ed un m m a a t t c c h he ed d
+#1 Full S2H-CD-FSOD - Baseline, McNemar p = 0.019
+20
+10
+0
+10
+-15
+matched query sheep boat dinin0g.1table 0.0 c0o.w1 car ca#t1
+high-confidence unmatched chair bottle sofa motorbike aeroplane train
+Figure 3. Query-level behaviour of the full model against the baseline. The two left panels are a single joint t-SNE fit of
+the final decoder query features (Clipart1k, 5-shot, 100 images, seed 3407; perplexity 30, PCA initialization, seed 0). Both
+panels contain the same 155 queries - the intersection over panels at score threshold 0.3, in identical row order - so the
+comparisonisquery-for-query. Filledtrianglesarequeriesmatchedtoaground-truthbox(samecategory,IoU≥0.5),hollow
+circles are high-confidence unmatched queries, and colours denote categories. The third panel shows the paired per-query
+score margin s gt −max c̸=gt s c with a bootstrap 95% CI over queries; the fourth shows the matched/unmatched flips of the
+same queries with an exact McNemar test. On these identical queries the full model matches 49 objects against 32 for the
+baseline (32 gained, 15 lost, net +17, p=0.019), while the margin of the 17 queries matched by both models is unchanged
+(−0.005, CI [−0.048,0.036]).
+80
+Placeholder: hyper-parameter sensitivity on 60
+5-shot Clipart1k.
+40
+Panels: context rank, Hard update radius,
+authority ceiling, uncertainty threshold, and 20
+consistency weight.
+0
+Figure 4. Hyper-parameter sensitivity analysis on the Cli-
+part1k dataset (5-shot). Each panel varies one quantity
+while the support split, checkpoint, and optimization bud-
+get stay fixed.
+634 cessing, score threshold, and post-processing for every
+635 column. Clipart1k exposes contextual boat/car con-
+636 fusions, DeepFish stresses a small low-contrast fish,
+637 and NEU-DET contains overlapping defect categories
+638 such as patches, crazing, and inclusions. The in-
+639 tended outcome is a selective change in error type—
+640 fewer context-driven responses and better-supported
+641 category decisions—rather than a blanket increase in
+642 the number of predictions. Cross-domain qualitative
+643 comparisons and balanced failure cases are reported in
+644 the supplementary material.
+)%(PAm
+Baseline FFCP FFCP+CHSD Full
+74.0
+74.1
+58.7 73.8
+58.3
+58.6
+57.6
+41.6
+29
+2
+.5
+8
+2
+.3
+8.7 252.672.862.77.0
+19.7
+Clipart1k DeepFish NEU-DET UODD
+Figure 5. Compact 5-shot component ablation on the four
+domains with completed runs. FFCP, CHSD, and ATAR
+are added cumulatively to the Grounding DINO baseline.
+The baseline values are taken from Table 2; the FFCP,
+FFCP+CHSD,andFullvaluesaretheseed-averagedmAP
+values of the current run workbook.
+5. Conclusion
+645
+We introduced support-induced context leakage, 646
+a phenomenon in which non-category support fac- 647
+tors perturb predictions for an unchanged query af- 648
+ter few-shot adaptation. A controlled study on Cli- 649
+part1k and NEU-DET measures classification and lo- 650
+calization drift beyond training-seed variation and 651
+shows that intervention severity depends on the tar- 652
+get domain. Based on this observation, we proposed 653
+a knowledge-enhanced Hard-Soft framework: FFCP 654
+identifies context-sensitive directions, CHSD separates 655
+anidentityanchorfromcontext-cleanedtargetappear- 656
+ance, and ATAR uses their agreement to authorize a 657
+10
+===== PAGE 11 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****.CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Figure 6. Qualitative detection comparison on 5-shot target domains. Each row shows a representative example from
+Clipart1k,DeepFish,andNEU-DET,whilethecolumnsprogressfromgroundtruthtotheGroundingDINObaseline,FFCP,
+FFCP+CHSD,andthefullS2H-CD-FSODmodel. Yellowdashedboxesindicateannotatedobjects;coloredpredictionboxes
+are labeled with the predicted category and confidence score. The examples illustrate how the cumulative stages suppress
+context-driven or spurious responses while retaining detections of the target objects, with the largest changes occurring in
+the cluttered underwater and industrial scenes.
+bounded correction only for uncertain queries. 680 658 VanGool,andXingqunJiang. Cross-domainfew-shot
+659 Experiments across six CD-FSOD benchmarks eval- objectdetectionviaenhancedopen-setobjectdetector. 681
+660 uate whether regulating support knowledge improves In ECCV, pages 247–264, 2024. 682
+661 detection accuracy without destabilizing a strong pre- [4] Yonatan Geifman and Ran El-Yaniv. Selective classi- 683
+662 trained detector. Rather than being transferred as an fication for deep neural networks. In NeurIPS, 2017. 684
+663 unrestricted prototype, target-domain evidence should [5] Xiuye Gu, Tsung-Yi Lin, Weicheng Kuo, Yin Cui, 685
+664 first be tested, decomposed, and authorized accord- Xinyang Chen, Liang-Chieh Wu, Alexander Kirillov, 686
+665 ing to its reliability and the uncertainty of the current etal. Open-vocabularyobjectdetectionviavisionand 687
+666 query. This principle provides a practical route to- language knowledge distillation. In ICLR, 2022. 688
+667 ward reliable vision-language detector adaptation un- [6] ChuanGuo,GeoffPleiss,YuSun,andKilianQ.Wein- 689
+668 der scarce supervision. berger. On calibration of modern neural networks. In 690
+ICML, pages 1321–1330, 2017. 691
+References
+669 [7] YaliHuang,JieMei,YimingYang,MiGuo,Mingyuan 692
+Jiu, and Mingliang Xu. Instance feature caching for 693
+670 [1] Nicolas Carion, Francisco Massa, Gabriel Synnaeve,
+cross-domain few-shot object detection. In CVPRW, 694
+671 Nicolas Usunier, Alexander Kirillov, and Sergey
+pages 1567–1575, 2025. 695
+672 Zagoruyko. End-to-end object detection with trans-
+673 formers. In ECCV, pages 213–229, 2020. [8] Yali Huang, Jie Mei, Zhe Wu, et al. Less is better: 696
+Sparseinstancelearningforcross-domainfew-shotob- 697
+674 [2] Weifu Fu, Jinyang Li, Bin-Bin Gao, J. Li, Yuhuan
+ject detection. In AAAI, 2026. 698
+675 Lin,HanqiuDeng,WenbingTao,YongLiu,andChen
+676 Wang. Pet-dino: Unifying visual cues into grounding [9] Yongwei Jiang, Yixiong Zou, Yuhua Li, and Ruixuan 699
+677 dino with prompt-enriched training. In CVPR, 2026. Li. Remedying target-domain astigmatism for cross- 700
+domain few-shot object detection. In CVPR, 2026. 701
+678 [3] YuqianFu,YuWang,YixuanPan,LianHuai,Xingyu
+679 Qiu, Zeyu Shangguan, Tong Liu, Yanwei Fu, Luc [10] Aishwarya Kamath, Mannat Singh, Yann LeCun, 702
+11
+===== PAGE 12 =====
+CVPR CVPR
+#***** #*****
+CVPR2026Submission#*****. CONFIDENTIALREVIEWCOPY.DONOTDISTRIBUTE.
+Gabriel Synnaeve, Ishan Misra, and Nicolas Cario7n60. 70[235] Xiaopeng Yan, Ziliang Chen, Anni Xu, Xiaoxi Wang,
+704 Mdetr: Modulated detection for end-to-end multi- XiaodanLiang,andLiangLin.MetaR-CNN:Towards 761
+705 modal understanding. In ICCV, pages 1780–1790, general solver for instance-level low-shot learning. In 762
+706 2021. ICCV, pages 9577–9586, 2019. 763
+707 [11] Feng Li, Hao Zhang, Shilong Liu, Lei Guo, Lionel M. [26] X.YangandQ.Xie. Styleproto: Style-augmentedpro- 764
+708 Ni, and Lei Zhang. DN-DETR: Accelerate DETR totypelearningforcross-domainfew-shotobjectdetec- 765
+709 training by introducing query denoising. In CVPR, tion. In AAAI, 2026. 766
+710 pages 13619–13627, 2022. [27] XuanlongYu,YouyangSha,LongfeiLiu,XiShen,and 767
+711 [12] LiunianHaroldLi,PengchuanZhang,HaotianZhang, DiYang.Acloserlookatcross-domainfew-shotobject 768
+712 Jianwei Yang, Chunyuan Li, Yiwu Zhong, Lijuan detection: Fine-tuning matters and parallel decoder 769
+713 Wang, Lu Yuan, Lei Zhang, Jenq-Neng Hwang, Kai- helps. In CVPR, 2026. 770
+714 Wei Chang, and Jianfeng Gao. Grounded language- [28] YuhangZang et al. The open-vocabulary DETRwith 771
+715 image pre-training. In CVPR, pages 10965–10975, conditional matching. In ECCV, 2022. 772
+716 2022. [29] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang 773
+717 [13] Yanghao Li, Hanzi Mao, Ross Girshick, and Kaiming Su, Jun Zhu, Lionel M. Ni, and Heung-Yeung Shum. 774
+718 He. Exploring plain vision transformer backbones for Dino: Detr with improved denoising anchor boxes for 775
+719 object detection. In ECCV, pages 280–296, 2022. end-to-end object detection. In ICLR, 2023. 776
+720 [14] Yu Li, Xingyu Qiu, Yuqian Fu, Jie Chen, Tianwen [30] XinyuZhang,YuhanLiu,YutingWang,andAbdeslam 777
+721 Qian, Xu Zheng, Danda Pani Paudel, Yanwei Fu, Xu- Boularias.Detecteverythingwithfewexamples.arXiv 778
+722 anjing Huang, Luc Van Gool, et al. Domain-rag: preprint arXiv:2309.12969, 2023. 779
+723 Retrieval-guided compositional image generation for [31] YiwuZhongetal. Regionclip: Region-basedlanguage- 780
+724 cross-domain few-shot object detection. In NeurIPS, image pretraining. In CVPR, pages 16793–16803, 781
+725 2025. 2022. 782
+726 [15] Chang-HanLiu,XunzhiXiang,ZixuanDuan,Wenbin [32] Xingyi Zhou, Rohit Girdhar, Armand Joulin, Philipp 783
+727 Li, Qi Fan, and Yang Gao. Don’t need retraining: A Krähenbühl, and Ishan Misra. Detecting twenty- 784
+728 mixtureofdetrandvisionfoundationmodelsforcross- thousand classes using image-level supervision. In 785
+729 domain few-shot object detection. In NeurIPS, 2025. ECCV, pages 350–368, 2022. 786
+730 [16] ShilongLiu,FengZhang,Y.Chen,etal. DAB-DETR: [33] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang 787
+731 Dynamic anchor boxes are better queries for DETR. Wang,andJifengDai.DeformableDETR:Deformable 788
+732 In ICLR, 2022. transformersforend-to-endobjectdetection.InICLR, 789
+733 [17] Shilong Liu, Zhaoyang Zeng, Tianhe Ren, et al. 2021. 790
+734 Grounding dino: Marrying dino with grounded pre-
+735 trainingforopen-setobjectdetection.InECCV,pages
+736 38–55, 2024.
+737 [18] Matthias Minderer, Alexey Gritsenko, Austin Stone,
+738 Maxim Neumann, Dirk Weissenborn, et al. Simple
+739 open-vocabulary object detection with vision trans-
+740 formers. In ECCV, pages 728–755, 2022.
+741 [19] Jiancheng Pan, Y. Liu, X. He, et al. Enhance then
+742 search: An augmentation-search strategy with foun-
+743 dationmodelsforcross-domainfew-shotobjectdetec-
+744 tion. In CVPRW, pages 1548–1556, 2025.
+745 [20] L. Qiao, Y. Zhao, Y. Li, J. Lyu, and P. Li. Defrcn:
+746 Decoupled faster r-cnn for few-shot object detection.
+747 In ICCV, 2021.
+748 [21] B. Sun, B. Li, S. Cai, Y. Yuan, and C. Zhang. Fsce:
+749 Few-shotobjectdetectionviacontrastiveproposalen-
+750 coding. In CVPR, 2021.
+751 [22] Wanqi Wang, Jingcai Guo, Yuxiang Cai, and Zhi
+752 Chen. Learning multi-modal prototypes for cross-
+753 domain few-shot object detection. In CVPR, 2026.
+754 [23] Y. Wang, W. Yao, S. J. Hwang, and K. He. Frus-
+755 tratingly simple few-shot object detection. In ICML,
+756 2020.
+757 [24] Wuti Xiong. CD-FSOD: A benchmark for cross-
+758 domain few-shot object detection. In ICASSP, pages
+759 1–5, 2023.
+12

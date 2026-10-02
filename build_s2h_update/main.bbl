@@ -1,0 +1,210 @@
+\begin{thebibliography}{33}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Carion et~al.(2020)Carion, Massa, Synnaeve, Usunier, Kirillov, and
+  Zagoruyko]{detr}
+Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander
+  Kirillov, and Sergey Zagoruyko.
+\newblock End-to-end object detection with transformers.
+\newblock In \emph{ECCV}, pages 213--229, 2020.
+
+\bibitem[Fu et~al.(2026)Fu, Li, Gao, Li, Lin, Deng, Tao, Liu, and
+  Wang]{petdino}
+Weifu Fu, Jinyang Li, Bin-Bin Gao, J. Li, Yuhuan Lin, Hanqiu Deng, Wenbing Tao,
+  Yong Liu, and Chen Wang.
+\newblock Pet-dino: Unifying visual cues into grounding dino with
+  prompt-enriched training.
+\newblock In \emph{CVPR}, 2026.
+
+\bibitem[Fu et~al.(2024)Fu, Wang, Pan, Huai, Qiu, Shangguan, Liu, Fu, Van~Gool,
+  and Jiang]{cdvito}
+Yuqian Fu, Yu Wang, Yixuan Pan, Lian Huai, Xingyu Qiu, Zeyu Shangguan, Tong
+  Liu, Yanwei Fu, Luc Van~Gool, and Xingqun Jiang.
+\newblock Cross-domain few-shot object detection via enhanced open-set object
+  detector.
+\newblock In \emph{ECCV}, pages 247--264, 2024.
+
+\bibitem[Geifman and El-Yaniv(2017)]{selective}
+Yonatan Geifman and Ran El-Yaniv.
+\newblock Selective classification for deep neural networks.
+\newblock In \emph{NeurIPS}, 2017.
+
+\bibitem[Gu et~al.(2022)Gu, Lin, Kuo, Cui, Chen, Wu, Kirillov, et~al.]{vild}
+Xiuye Gu, Tsung-Yi Lin, Weicheng Kuo, Yin Cui, Xinyang Chen, Liang-Chieh Wu,
+  Alexander Kirillov, et~al.
+\newblock Open-vocabulary object detection via vision and language knowledge
+  distillation.
+\newblock In \emph{ICLR}, 2022.
+
+\bibitem[Guo et~al.(2017)Guo, Pleiss, Sun, and Weinberger]{calibration}
+Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian~Q. Weinberger.
+\newblock On calibration of modern neural networks.
+\newblock In \emph{ICML}, pages 1321--1330, 2017.
+
+\bibitem[Huang et~al.(2025)Huang, Mei, Yang, Guo, Jiu, and Xu]{ifc}
+Yali Huang, Jie Mei, Yiming Yang, Mi Guo, Mingyuan Jiu, and Mingliang Xu.
+\newblock Instance feature caching for cross-domain few-shot object detection.
+\newblock In \emph{CVPRW}, pages 1567--1575, 2025.
+
+\bibitem[Huang et~al.(2026)Huang, Mei, Wu, et~al.]{sivito}
+Yali Huang, Jie Mei, Zhe Wu, et~al.
+\newblock Less is better: Sparse instance learning for cross-domain few-shot
+  object detection.
+\newblock In \emph{AAAI}, 2026.
+
+\bibitem[Jiang et~al.(2026)Jiang, Zou, Li, and Li]{astigmatism}
+Yongwei Jiang, Yixiong Zou, Yuhua Li, and Ruixuan Li.
+\newblock Remedying target-domain astigmatism for cross-domain few-shot object
+  detection.
+\newblock In \emph{CVPR}, 2026.
+
+\bibitem[Kamath et~al.(2021)Kamath, Singh, LeCun, Synnaeve, Misra, and
+  Carion]{mdetr}
+Aishwarya Kamath, Mannat Singh, Yann LeCun, Gabriel Synnaeve, Ishan Misra, and
+  Nicolas Carion.
+\newblock Mdetr: Modulated detection for end-to-end multi-modal understanding.
+\newblock In \emph{ICCV}, pages 1780--1790, 2021.
+
+\bibitem[Li et~al.(2022{\natexlab{a}})Li, Zhang, Liu, Guo, Ni, and
+  Zhang]{dn_detr}
+Feng Li, Hao Zhang, Shilong Liu, Lei Guo, Lionel~M. Ni, and Lei Zhang.
+\newblock {DN-DETR}: Accelerate {DETR} training by introducing query denoising.
+\newblock In \emph{CVPR}, pages 13619--13627, 2022{\natexlab{a}}.
+
+\bibitem[Li et~al.(2022{\natexlab{b}})Li, Zhang, Zhang, Yang, Li, Zhong, Wang,
+  Yuan, Zhang, Hwang, Chang, and Gao]{glip}
+Liunian~Harold Li, Pengchuan Zhang, Haotian Zhang, Jianwei Yang, Chunyuan Li,
+  Yiwu Zhong, Lijuan Wang, Lu Yuan, Lei Zhang, Jenq-Neng Hwang, Kai-Wei Chang,
+  and Jianfeng Gao.
+\newblock Grounded language-image pre-training.
+\newblock In \emph{CVPR}, pages 10965--10975, 2022{\natexlab{b}}.
+
+\bibitem[Li et~al.(2022{\natexlab{c}})Li, Mao, Girshick, and He]{vitdet}
+Yanghao Li, Hanzi Mao, Ross Girshick, and Kaiming He.
+\newblock Exploring plain vision transformer backbones for object detection.
+\newblock In \emph{ECCV}, pages 280--296, 2022{\natexlab{c}}.
+
+\bibitem[Li et~al.(2025)Li, Qiu, Fu, Chen, Qian, Zheng, Paudel, Fu, Huang,
+  Van~Gool, et~al.]{domainrag}
+Yu Li, Xingyu Qiu, Yuqian Fu, Jie Chen, Tianwen Qian, Xu Zheng, Danda~Pani
+  Paudel, Yanwei Fu, Xuanjing Huang, Luc Van~Gool, et~al.
+\newblock Domain-rag: Retrieval-guided compositional image generation for
+  cross-domain few-shot object detection.
+\newblock In \emph{NeurIPS}, 2025.
+
+\bibitem[Liu et~al.(2025)Liu, Xiang, Duan, Li, Fan, and Gao]{vfmmoe}
+Chang-Han Liu, Xunzhi Xiang, Zixuan Duan, Wenbin Li, Qi Fan, and Yang Gao.
+\newblock Don't need retraining: A mixture of detr and vision foundation models
+  for cross-domain few-shot object detection.
+\newblock In \emph{NeurIPS}, 2025.
+
+\bibitem[Liu et~al.(2022)Liu, Zhang, Chen, et~al.]{dab_detr}
+Shilong Liu, Feng Zhang, Y. Chen, et~al.
+\newblock {DAB-DETR}: Dynamic anchor boxes are better queries for {DETR}.
+\newblock In \emph{ICLR}, 2022.
+
+\bibitem[Liu et~al.(2024)Liu, Zeng, Ren, et~al.]{groundingdino}
+Shilong Liu, Zhaoyang Zeng, Tianhe Ren, et~al.
+\newblock Grounding dino: Marrying dino with grounded pre-training for open-set
+  object detection.
+\newblock In \emph{ECCV}, pages 38--55, 2024.
+
+\bibitem[Minderer et~al.(2022)Minderer, Gritsenko, Stone, Neumann, Weissenborn,
+  et~al.]{owlvit}
+Matthias Minderer, Alexey Gritsenko, Austin Stone, Maxim Neumann, Dirk
+  Weissenborn, et~al.
+\newblock Simple open-vocabulary object detection with vision transformers.
+\newblock In \emph{ECCV}, pages 728--755, 2022.
+
+\bibitem[Pan et~al.(2025)Pan, Liu, He, et~al.]{ets}
+Jiancheng Pan, Y. Liu, X. He, et~al.
+\newblock Enhance then search: An augmentation-search strategy with foundation
+  models for cross-domain few-shot object detection.
+\newblock In \emph{CVPRW}, pages 1548--1556, 2025.
+
+\bibitem[Qiao et~al.(2021)Qiao, Zhao, Li, Lyu, and Li]{defrcn}
+L. Qiao, Y. Zhao, Y. Li, J. Lyu, and P. Li.
+\newblock Defrcn: Decoupled faster r-cnn for few-shot object detection.
+\newblock In \emph{ICCV}, 2021.
+
+\bibitem[Sun et~al.(2021)Sun, Li, Cai, Yuan, and Zhang]{fsce}
+B. Sun, B. Li, S. Cai, Y. Yuan, and C. Zhang.
+\newblock Fsce: Few-shot object detection via contrastive proposal encoding.
+\newblock In \emph{CVPR}, 2021.
+
+\bibitem[Wang et~al.(2026)Wang, Guo, Cai, and Chen]{lmp}
+Wanqi Wang, Jingcai Guo, Yuxiang Cai, and Zhi Chen.
+\newblock Learning multi-modal prototypes for cross-domain few-shot object
+  detection.
+\newblock In \emph{CVPR}, 2026.
+
+\bibitem[Wang et~al.(2020)Wang, Yao, Hwang, and He]{tfa}
+Y. Wang, W. Yao, S.~J. Hwang, and K. He.
+\newblock Frustratingly simple few-shot object detection.
+\newblock In \emph{ICML}, 2020.
+
+\bibitem[Xiong(2023)]{distillcdfsod}
+Wuti Xiong.
+\newblock {CD-FSOD}: A benchmark for cross-domain few-shot object detection.
+\newblock In \emph{ICASSP}, pages 1--5, 2023.
+
+\bibitem[Yan et~al.(2019)Yan, Chen, Xu, Wang, Liang, and Lin]{metarcnn}
+Xiaopeng Yan, Ziliang Chen, Anni Xu, Xiaoxi Wang, Xiaodan Liang, and Liang Lin.
+\newblock Meta {R-CNN}: Towards general solver for instance-level low-shot
+  learning.
+\newblock In \emph{ICCV}, pages 9577--9586, 2019.
+
+\bibitem[Yang and Xie(2026)]{styleproto}
+X. Yang and Q. Xie.
+\newblock Styleproto: Style-augmented prototype learning for cross-domain
+  few-shot object detection.
+\newblock In \emph{AAAI}, 2026.
+
+\bibitem[Yu et~al.(2026)Yu, Sha, Liu, Shen, and Yang]{yu2026}
+Xuanlong Yu, Youyang Sha, Longfei Liu, Xi Shen, and Di Yang.
+\newblock A closer look at cross-domain few-shot object detection: Fine-tuning
+  matters and parallel decoder helps.
+\newblock In \emph{CVPR}, 2026.
+
+\bibitem[Zang et~al.(2022)]{ovdetr}
+Yuhang Zang et~al.
+\newblock The open-vocabulary {DETR} with conditional matching.
+\newblock In \emph{ECCV}, 2022.
+
+\bibitem[Zhang et~al.(2023{\natexlab{a}})Zhang, Li, Liu, Zhang, Su, Zhu, Ni,
+  and Shum]{dino}
+Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su, Jun Zhu, Lionel~M. Ni, and
+  Heung-Yeung Shum.
+\newblock Dino: Detr with improved denoising anchor boxes for end-to-end object
+  detection.
+\newblock In \emph{ICLR}, 2023{\natexlab{a}}.
+
+\bibitem[Zhang et~al.(2023{\natexlab{b}})Zhang, Liu, Wang, and
+  Boularias]{devit}
+Xinyu Zhang, Yuhan Liu, Yuting Wang, and Abdeslam Boularias.
+\newblock Detect everything with few examples.
+\newblock \emph{arXiv preprint arXiv:2309.12969}, 2023{\natexlab{b}}.
+
+\bibitem[Zhong et~al.(2022)]{regionclip}
+Yiwu Zhong et~al.
+\newblock Regionclip: Region-based language-image pretraining.
+\newblock In \emph{CVPR}, pages 16793--16803, 2022.
+
+\bibitem[Zhou et~al.(2022)Zhou, Girdhar, Joulin, Kr\"ahenb\"uhl, and
+  Misra]{detic}
+Xingyi Zhou, Rohit Girdhar, Armand Joulin, Philipp Kr\"ahenb\"uhl, and Ishan
+  Misra.
+\newblock Detecting twenty-thousand classes using image-level supervision.
+\newblock In \emph{ECCV}, pages 350--368, 2022.
+
+\bibitem[Zhu et~al.(2021)Zhu, Su, Lu, Li, Wang, and Dai]{deformable_detr}
+Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, and Jifeng Dai.
+\newblock Deformable {DETR}: Deformable transformers for end-to-end object
+  detection.
+\newblock In \emph{ICLR}, 2021.
+
+\end{thebibliography}

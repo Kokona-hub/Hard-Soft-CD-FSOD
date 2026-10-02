@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 环境变量与密钥
+.env
+*.key
+*.pem
+secrets.json
+
+# 模型 / 数据（大文件别传）
+models/
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.pth
+data/
+chroma_db/
+vector_store/
+*.faiss
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/
