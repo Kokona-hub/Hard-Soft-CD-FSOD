@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Copyright (c) S2H-CD-FSOD. All rights reserved.
 #
-# One-at-a-time hyper-parameter sweep for Figure 4 (5-shot Clipart1k, 3 seeds).
+# One-at-a-time hyper-parameter sweep for Figure 4 (Clipart1k; shot is
+# configurable through SHOT, so the wrapper can run 1/5/10-shot matrices).
 #
 # Zero-touch guarantee
 # -------------------
@@ -27,7 +28,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MMDET="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# analysis/ -> s2h/ -> tools/ -> mmdetection/
+MMDET="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "${MMDET}"
 
 # BERT weights (an exported-but-empty S2H_BERT_DIR breaks AutoTokenizer)
@@ -49,6 +51,11 @@ BATCH_SIZE="${BATCH_SIZE:-4}"
 DEVICE="${DEVICE:-cuda:0}"
 DRY_RUN="${DRY_RUN:-0}"
 FORCE="${FORCE:-0}"
+# Optional space-separated cfg-options injected into test-time sweeps.  This
+# lets date-scoped figures reproduce an older protocol without changing the
+# generated configs used by the main mAP experiments.
+EXTRA_CFG_OPTIONS="${EXTRA_CFG_OPTIONS:-}"
+EXTRA_TEST_CFG_OPTIONS="${EXTRA_TEST_CFG_OPTIONS:-}"
 CHECKPOINT_POLICY="${CHECKPOINT_POLICY:-final}"
 case "${CHECKPOINT_POLICY}" in
   best|final) ;;
@@ -168,10 +175,26 @@ for PARAM in ${PARAMS}; do
             "or knowledge (looked in ${ABL_ROOT} and ${ABL_KNOW})" | tee -a "${PLAN_LOG}"
           continue
         fi
+        # Do not plot a parameter sweep from a cache whose ATAR gate is
+        # silently inactive.  This is especially important when an old
+        # 20260930 cache is accidentally mixed with the current protocol.
+        if [ "${DRY_RUN}" != "1" ]; then
+          "${PYTHON}" tools/s2h/validate_knowledge.py "${ABL_KNOW_FILE}" \
+            --stage full || exit 1
+        fi
+        TEST_OPTIONS=(
+          "model.bbox_head.s2h_cfg.knowledge_path=${ABL_KNOW_FILE}"
+          "$(cfg_option_for "${PARAM}" "${VALUE}")")
+        if [ -n "${EXTRA_CFG_OPTIONS}" ]; then
+          read -r -a EXTRA_OPTIONS <<< "${EXTRA_CFG_OPTIONS}"
+          TEST_OPTIONS+=("${EXTRA_OPTIONS[@]}")
+        fi
+        if [ -n "${EXTRA_TEST_CFG_OPTIONS}" ]; then
+          read -r -a EXTRA_TEST_OPTIONS <<< "${EXTRA_TEST_CFG_OPTIONS}"
+          TEST_OPTIONS+=("${EXTRA_TEST_OPTIONS[@]}")
+        fi
         run "${LOG}" tools/test.py "${CFG}" "${ABL_CKPT}" \
-          --work-dir "${TEST}" \
-          --cfg-options "model.bbox_head.s2h_cfg.knowledge_path=${ABL_KNOW_FILE}" \
-                        "$(cfg_option_for "${PARAM}" "${VALUE}")"
+          --work-dir "${TEST}" --cfg-options "${TEST_OPTIONS[@]}"
       else
         # A training-time sweep (con_weight) must differ in exactly one
         # quantity, so it reuses the knowledge file of the corresponding
@@ -212,6 +235,10 @@ for PARAM in ${PARAMS}; do
           fi
           [ "${DRY_RUN}" = "1" ] || [ -s "${KNOW}" ] || {
             echo "missing knowledge ${KNOW}" >&2; exit 1; }
+          if [ "${DRY_RUN}" != "1" ]; then
+            "${PYTHON}" tools/s2h/validate_knowledge.py "${KNOW}" \
+              --stage full || exit 1
+          fi
         fi
         # build-time parameters have no training-time counterpart, so only
         # append a `--cfg-options` entry when there is one (an empty string

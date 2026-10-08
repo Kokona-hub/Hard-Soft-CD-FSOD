@@ -51,8 +51,11 @@ model = dict(
             T_u={t_u},
             init_alpha_bias={init_alpha_bias},
             init_alpha_from_reliability=True,
-            positive_only=True,
+            positive_only=False,
             center_delta=True,
+            correction_mode='contrastive',
+            evidence_temperature=0.20,
+            routing_confidence='sigmoid',
             soft_mix=0.35,
             reliability_power={reliability_power},
             alpha_rel_floor={alpha_rel_floor},
@@ -188,7 +191,7 @@ def parse_args():
     parser.add_argument('--res-weight', type=float, default=0.0)
     parser.add_argument('--con-weight', type=float, default=0.0)
     parser.add_argument('--init-alpha-bias', type=float, default=-2.5)
-    parser.add_argument('--reliability-power', type=float, default=0.5)
+    parser.add_argument('--reliability-power', type=float, default=1.0)
     parser.add_argument('--alpha-rel-floor', type=float, default=0.10)
     parser.add_argument('--alpha-rel-scale', type=float, default=0.80)
     return parser.parse_args()

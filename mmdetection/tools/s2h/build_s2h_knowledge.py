@@ -351,9 +351,32 @@ def build_class_knowledge(desc: dict, classes, token_ids, text_emb, args,
     r_app = project_out(project_out(f_fg, u_h), u_bar_ctx)
     k_support = float(f_fg.shape[0])
     alpha_k = args.shrink_xi / (k_support + args.shrink_xi)
-    s_c = (1.0 - alpha_k) * robust_mean(r_app, dim=0)
+    # The previous implementation multiplied the appearance estimate by
+    # ``(1-alpha_k)`` and then normalized it in the caller.  That scalar was
+    # therefore erased and the advertised shot-aware shrinkage had no effect.
+    # Shrink toward the text identity instead: with fewer support instances
+    # the visual estimate is less reliable, while additional shots increase
+    # the weight of the context-cleaned appearance residual.
+    appearance = robust_mean(r_app, dim=0)
+    s_c = (1.0 - alpha_k) * appearance + alpha_k * t0
+    # Degenerate projections can occur for a tiny support class.  A zero
+    # Soft vector would make every query correction zero after normalization;
+    # fall back to the text identity so the class remains usable.
+    if float(s_c.norm()) < 1e-6:
+        s_c = t0.clone()
 
-    reliability = float(np.clip((1.0 - float(kappa)) * coverage, 0.0, 1.0))
+    # If no attribute survives the CHSD gate, the hard anchor deliberately
+    # falls back to the text identity ``t0``.  That is a conservative CHSD
+    # result, not evidence that the support class is unusable.  Multiplying
+    # by the zero attribute coverage here would set reliability to zero and
+    # make the downstream ATAR gate produce ``delta=0`` for every query,
+    # silently disabling both CHSD and Full.  Reuse the FFCP context
+    # reliability in that fallback case; when attributes are retained, their
+    # coverage remains a useful additional confidence factor.
+    context_reliability = float(np.clip(1.0 - float(kappa), 0.0, 1.0))
+    reliability = context_reliability * coverage if keep.any() \
+        else context_reliability
+    reliability = float(np.clip(reliability, 0.0, 1.0))
 
     return dict(
         hard=l2_normalize(h_c, dim=-1),
@@ -364,6 +387,7 @@ def build_class_knowledge(desc: dict, classes, token_ids, text_emb, args,
         n_attr_kept=int(keep.sum()),
         n_attr=len(attrs),
         n_support=int(f_fg.shape[0]),
+        shrink_alpha=float(alpha_k),
         u_ctx_rank=int(u_ctx.shape[0]) if u_ctx.numel() else 0,
         stage=args.stage,
     )

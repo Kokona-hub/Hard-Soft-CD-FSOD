@@ -364,7 +364,19 @@ class S2HKnowledgeBank(nn.Module):
         positive_only (bool): Keep only positive class corrections.
         center_delta (bool): Remove the per-query mean correction before the
             optional positive-only projection.
-        soft_mix (float): Hard/soft direction mixture for CHSD and ATAR.
+        correction_mode (str): Correction geometry, either ``legacy`` or
+            ``contrastive``. Contrastive mode centers class evidence and
+            allows negative corrections for competing classes.
+        evidence_temperature (float): Temperature used to bound contrastive
+            class evidence.
+        routing_confidence (str): Query confidence used by ATAR. ``sigmoid``
+            follows the paper's Eq. (11), which defines confidence from the
+            detector's independent token scores. ``softmax`` is retained only
+            as an experimental opt-in because it changes the published
+            routing protocol for multi-class datasets.
+        soft_mix (float): Fraction of the Soft prototype used in the
+            correction direction for ``ffcp_chsd`` and ``full``. ``0`` uses
+            only the Hard direction; ``1`` uses only the Soft direction.
         train_injection (bool): Whether to inject corrections during training.
         reliability_power (float): Exponent applied to the reliability gate.
         alpha_rel_floor (float): Reliability-aware alpha floor as a fraction
@@ -392,9 +404,12 @@ class S2HKnowledgeBank(nn.Module):
                  init_alpha_from_reliability: bool = False,
                  positive_only: bool = False,
                  center_delta: bool = False,
+                 correction_mode: str = 'legacy',
+                 evidence_temperature: float = 0.20,
+                 routing_confidence: str = 'sigmoid',
                  soft_mix: float = 0.35,
                  train_injection: bool = True,
-                 reliability_power: float = 0.5,
+                 reliability_power: float = 1.0,
                  alpha_rel_floor: float = 0.10,
                  alpha_rel_scale: float = 0.80,
                  eps: float = 1e-6,
@@ -414,11 +429,22 @@ class S2HKnowledgeBank(nn.Module):
         self.init_alpha_from_reliability = bool(init_alpha_from_reliability)
         self.positive_only = bool(positive_only)
         self.center_delta = bool(center_delta)
+        self.correction_mode = str(correction_mode).lower()
+        if self.correction_mode not in ('legacy', 'contrastive'):
+            raise ValueError(
+                f"unknown correction_mode {correction_mode!r}; expected "
+                "legacy or contrastive")
+        self.evidence_temperature = max(float(evidence_temperature), 1e-4)
+        self.routing_confidence = str(routing_confidence).lower()
+        if self.routing_confidence not in ('softmax', 'sigmoid'):
+            raise ValueError(
+                f"unknown routing_confidence {routing_confidence!r}; "
+                "expected softmax or sigmoid")
         self.soft_mix = float(soft_mix)
         self.train_injection = bool(train_injection)
-        # Reliability-aware alpha initialization already encodes support
-        # confidence. A square-root gate avoids multiplying that confidence
-        # by a second full reliability factor while remaining bounded.
+        # Eq. (11) uses the reliability itself as the authority factor.  A
+        # sub-linear power would inflate low-reliability CHSD evidence and can
+        # make the FFCP and CHSD gates indistinguishable after clipping.
         self.reliability_power = float(reliability_power)
         self.alpha_rel_floor = float(alpha_rel_floor)
         self.alpha_rel_scale = float(alpha_rel_scale)
@@ -584,14 +610,33 @@ class S2HKnowledgeBank(nn.Module):
 
     def broadcast_delta(self, token_logits: torch.Tensor,
                         delta: torch.Tensor) -> torch.Tensor:
-        """Add the per-class correction to the corresponding text tokens."""
+        """Apply a class-logit correction while preserving mean-sigmoid scores.
+
+        Grounding DINO converts token logits to class scores by averaging
+        token probabilities.  Adding ``delta`` directly to every token is
+        therefore not the same as adding it to the class logit used by ATAR.
+        For each class we solve the monotone scalar equation
+        ``mean(sigmoid(token + shift)) = sigmoid(class_logit + delta)`` with
+        a few Newton steps.  This keeps the detector's existing postprocessor
+        and makes the implemented correction match the class-level equation.
+        """
         out = token_logits.clone()
+        base_classes = self.class_logits_from_tokens(token_logits)
         for c in range(self.num_classes):
             start = int(self._token_offset[c])
             end = int(self._token_offset[c + 1])
             if end > start:
                 token_ids = self._token_flat[start:end].to(out.device)
-                out[..., token_ids] = out[..., token_ids] + delta[..., c:c + 1]
+                raw = token_logits.index_select(-1, token_ids)
+                target = torch.sigmoid(
+                    base_classes[..., c] + delta[..., c])
+                shift = delta[..., c].clone()
+                for _ in range(5):
+                    probs = torch.sigmoid(raw + shift.unsqueeze(-1))
+                    mean_prob = probs.mean(-1)
+                    deriv = (probs * (1.0 - probs)).mean(-1).clamp_min(self.eps)
+                    shift = shift - (mean_prob - target) / deriv
+                out[..., token_ids] = raw + shift.unsqueeze(-1)
         return out
 
     def current_alpha(self) -> torch.Tensor:
@@ -631,7 +676,14 @@ class S2HKnowledgeBank(nn.Module):
 
         # FFCP and FFCP+CHSD expose the prototype directly.  Only the full
         # method enables ATAR's query-uncertainty gate (Eq. 11).
-        p0 = class_logits.sigmoid().max(-1).values             # [...]
+        if self.routing_confidence == 'softmax' and class_logits.shape[-1] > 1:
+            # Grounding DINO's independent sigmoid scores are not calibrated
+            # against one another.  ATAR needs class competition to measure
+            # ambiguity, so use the normalized top-1 probability for the
+            # multi-class case; a one-class dataset keeps sigmoid semantics.
+            p0 = class_logits.softmax(-1).max(-1).values
+        else:
+            p0 = class_logits.sigmoid().max(-1).values             # [...]
         if self.stage == 'full':
             u = torch.sigmoid((self.theta - p0) / self.T_u)    # [...]
             g = torch.clamp(u.unsqueeze(-1) * r_gate, max=self.g_max)
@@ -639,20 +691,27 @@ class S2HKnowledgeBank(nn.Module):
             u = torch.ones_like(p0)
             g = r_gate.expand_as(class_logits).clamp(max=self.g_max)
 
-        # Eq. (12): bounded cosine correction.  FFCP uses the cleaned Soft
-        # prototype; CHSD/full use a conservative Hard/Soft blend so the
-        # visual descriptor cannot override the text-aligned identity anchor.
+        # Eq. (12): bounded cosine correction.  FFCP is the soft-only
+        # ablation.  CHSD/full use the configured Hard-Soft direction so that
+        # the Hard branch contributes to the evidence, rather than affecting
+        # only the reliability gate.  Normalizing after the convex blend
+        # keeps the cosine scale comparable across stages.
         # Compare every query with every class prototype.  ``z`` is shaped
         # ``[..., D]`` while ``soft`` is ``[C, D]``; broadcasting an element-
         # wise product would incorrectly align the query axis with classes.
         if self.stage == 'ffcp':
             direction = soft
         else:
-            hard = l2_normalize(self.hard.to(hidden_states.dtype), dim=-1)
-            mix = min(max(self.soft_mix, 0.0), 1.0)
-            direction = l2_normalize((1.0 - mix) * hard + mix * soft,
-                                     dim=-1)
+            mix = min(max(float(self.soft_mix), 0.0), 1.0)
+            direction = l2_normalize(
+                (1.0 - mix) * hard + mix * soft, dim=-1)
         d = torch.einsum('...d,cd->...c', z, direction)        # [..., C]
+        if self.correction_mode == 'contrastive' and d.shape[-1] > 1:
+            # Relative evidence is the useful signal for detection ranking.
+            # Centering removes query-wide score bias; tanh keeps the
+            # temperature-scaled evidence bounded and differentiable.
+            d = d - d.mean(dim=-1, keepdim=True)
+            d = torch.tanh(d / self.evidence_temperature)
         alpha = self.current_alpha().to(d.dtype)
         g_cls = torch.sigmoid(self.raw_g_cls).to(d.dtype)
         delta = self.gamma * g_cls * g * alpha * d
@@ -664,7 +723,8 @@ class S2HKnowledgeBank(nn.Module):
             delta = delta.clamp_min(0.0)
 
         return dict(delta=delta, u=u, p0=p0, agree=agree,
-                    class_logits=class_logits, r_bar=r_bar)
+                    evidence=d, class_logits=class_logits, r_bar=r_bar,
+                    g=g)
 
     def extra_repr(self) -> str:
         return (f'embed_dims={self.embed_dims}, '

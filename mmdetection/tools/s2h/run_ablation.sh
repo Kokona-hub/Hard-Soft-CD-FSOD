@@ -63,6 +63,7 @@ WORK_ROOT="${WORK_ROOT:-cat_work_dir/ablation}"
 LOG_ROOT="${LOG_ROOT:-work_dirs/ablation_logs}"
 CKPT="${CKPT:-}"
 FORCE="${FORCE:-0}"
+RESUME="${RESUME:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 REQUIRE_LOCAL_CKPT="${REQUIRE_LOCAL_CKPT:-1}"
 
@@ -158,14 +159,21 @@ train_one() {
   opts+=("train_dataloader.batch_size=${BATCH_SIZE}")
   opts+=("$@")
   mkdir -p "${work}"
+  local -a resume_opts=()
+  if [[ "${RESUME}" == "1" && -s "${work}/latest.pth" ]]; then
+    resume_opts=(--resume auto)
+    echo "[train] resume latest checkpoint: ${work}/latest.pth"
+  fi
   if [[ "${LAUNCHER:-dist}" == "torchrun" ]]; then
     PYTHONNOUSERSITE=1 PYTHONPATH="${MMDET}:${PYTHONPATH:-}" \
       "${PYTHON}" -m torch.distributed.run \
       --nproc_per_node="${GPUS}" --master_port="${PORT}" \
       tools/train.py "${cfg}" --launcher pytorch --work-dir "${work}" \
+      "${resume_opts[@]}" \
       --cfg-options "${opts[@]}"
   else
     PYTHON_BIN="${PYTHON}" bash tools/dist_train.sh "${cfg}" "${GPUS}" --work-dir "${work}" \
+      "${resume_opts[@]}" \
       --cfg-options "${opts[@]}"
   fi
 }
@@ -217,6 +225,11 @@ for STAGE in ${STAGES}; do
             --seed "${SEED}" --stage "${STAGE}" 2>&1 | tee -a "${LOG}"
         fi
         [[ -s "${KNOWLEDGE}" ]] || { echo "missing knowledge ${KNOWLEDGE}" >&2; exit 1; }
+        # Refuse silently inactive CHSD/full caches.  Without this check an
+        # old cache with reliability=0 runs successfully but applies delta=0.
+        CLASS_COUNT="$(${PYTHON} -c "from mmengine.config import Config; c=Config.fromfile('${CFG}'); print(len(c.train_dataloader.dataset.metainfo['classes']))" 2>/dev/null || echo 0)"
+        "${PYTHON}" tools/s2h/validate_knowledge.py "${KNOWLEDGE}" \
+          --stage "${STAGE}" --classes "${CLASS_COUNT}"
         EXTRA_TRAIN=(
           "model.bbox_head.s2h_cfg.enabled=True"
           "model.bbox_head.s2h_cfg.stage=${STAGE}"

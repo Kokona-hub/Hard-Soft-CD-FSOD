@@ -98,12 +98,10 @@ def test_knowledge_bank():
           f'correction ~0 at initialization (max={float(delta.abs().max()):.2e})')
 
     corrected = bank.broadcast_delta(token_logits, delta)
-    for i, idxs in enumerate(token_ids):
-        changed = corrected[..., idxs] - token_logits[..., idxs]
-        if i == 0:
-            check(torch.allclose(changed, delta[..., i:i + 1].expand_as(changed),
-                                 atol=1e-6),
-                  'broadcast adds the same delta to every token of a class')
+    corrected_cls = bank.class_logits_from_tokens(corrected)
+    expected_cls = class_logits + delta
+    check(torch.allclose(corrected_cls, expected_cls, atol=2e-5),
+          'broadcast preserves the requested class-logit correction')
     untouched = corrected[..., 9:10] - token_logits[..., 9:10]
     check(float(untouched.abs().max()) < 1e-6,
           'tokens of unrelated classes stay untouched')
@@ -147,6 +145,77 @@ def test_stage_semantics():
                   'full stage produces finite ATAR uncertainty')
 
 
+def test_contrastive_correction():
+    """Contrastive routing must produce both positive and negative evidence."""
+    torch.manual_seed(2)
+    c, d = 4, 16
+    bank = S2HKnowledgeBank(
+        embed_dims=d, classes=[f'c{i}' for i in range(c)],
+        correction_mode='contrastive', positive_only=False,
+        center_delta=True, evidence_temperature=0.20,
+        init_alpha_bias=2.0, g_max=1.0)
+    bank.set_knowledge(
+        hard=l2_normalize(torch.randn(c, d), dim=-1),
+        soft=l2_normalize(torch.randn(c, d), dim=-1),
+        kappa=torch.ones(c), reliability=torch.ones(c),
+        classes=[f'c{i}' for i in range(c)],
+        token_ids=[[i + 1] for i in range(c)])
+    out = bank.atar(torch.randn(2, 3, d), torch.randn(2, 3, c))
+    delta = out['delta']
+    evidence = out['evidence']
+    check((delta < 0).any() and (delta > 0).any(),
+          'contrastive correction can suppress competitors and boost candidates')
+    check(torch.allclose(evidence.mean(-1), torch.zeros_like(evidence.mean(-1)),
+                          atol=1e-6),
+          'contrastive class evidence is query-wise centered')
+
+
+def test_hard_only_routes_reliability():
+    """Hard anchors may gate authority, but cannot change Soft evidence."""
+    torch.manual_seed(3)
+    c, d = 3, 16
+    soft = l2_normalize(torch.randn(c, d), dim=-1)
+    hidden = torch.randn(2, 4, d)
+    logits = torch.randn(2, 4, c)
+    hard_a = l2_normalize(torch.randn(c, d), dim=-1)
+    hard_b = l2_normalize(torch.randn(c, d), dim=-1)
+    kwargs = dict(embed_dims=d, classes=[f'c{i}' for i in range(c)],
+                  stage='full', correction_mode='contrastive',
+                  init_alpha_bias=2.0, g_max=1.0)
+    bank_a = S2HKnowledgeBank(**kwargs)
+    bank_b = S2HKnowledgeBank(**kwargs)
+    token_ids = [[1], [2], [3]]
+    for bank, hard in ((bank_a, hard_a), (bank_b, hard_b)):
+        bank.set_knowledge(hard, soft, torch.ones(c), torch.ones(c),
+                           [f'c{i}' for i in range(c)], token_ids)
+    out_a = bank_a.atar(hidden, logits)
+    out_b = bank_b.atar(hidden, logits)
+    check(torch.allclose(out_a['evidence'], out_b['evidence'], atol=1e-6),
+          'Hard anchor does not alter Soft correction evidence')
+
+
+def test_routing_confidence():
+    """Multi-class routing uses competition confidence; one class uses sigmoid."""
+    bank = S2HKnowledgeBank(embed_dims=4, classes=['a', 'b'],
+                            routing_confidence='softmax', theta=0.5, T_u=0.1)
+    hidden = torch.randn(1, 1, 4)
+    logits = torch.tensor([[[2.0, 1.0]]])
+    bank.set_knowledge(torch.randn(2, 4), torch.randn(2, 4),
+                       torch.zeros(2), torch.ones(2), ['a', 'b'], [[1], [2]])
+    out = bank.atar(hidden, logits)
+    expected = torch.softmax(logits, -1).max(-1).values
+    check(torch.allclose(out['p0'], expected),
+          'multi-class routing confidence uses softmax competition')
+    single = S2HKnowledgeBank(embed_dims=4, classes=['a'],
+                              routing_confidence='softmax', theta=0.5, T_u=0.1)
+    single.set_knowledge(torch.randn(1, 4), torch.randn(1, 4),
+                         torch.zeros(1), torch.ones(1), ['a'], [[1]])
+    one_logits = torch.tensor([[[2.0]]])
+    one = single.atar(hidden, one_logits)
+    check(torch.allclose(one['p0'], one_logits.sigmoid().max(-1).values),
+          'single-class routing confidence uses sigmoid')
+
+
 def test_interventions():
     from PIL import Image
     img = Image.fromarray(
@@ -183,6 +252,9 @@ def main():
     test_operators()
     test_knowledge_bank()
     test_stage_semantics()
+    test_hard_only_routes_reliability()
+    test_routing_confidence()
+    test_contrastive_correction()
     test_interventions()
     print('\nAll S2H self-checks passed.')
 

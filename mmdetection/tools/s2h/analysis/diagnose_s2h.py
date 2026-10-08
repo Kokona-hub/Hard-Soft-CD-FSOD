@@ -59,7 +59,13 @@ import sys
 import numpy as np
 from typing import Optional, Tuple
 
-sys.path.insert(0, osp.abspath(osp.dirname(__file__)))
+# The script is commonly launched as ``python tools/s2h/analysis/...`` from
+# the mmdetection root.  Add that root explicitly; adding only ``analysis/``
+# makes ``import mmdet`` fail on a clean server environment.
+ANALYSIS_DIR = osp.abspath(osp.dirname(__file__))
+MMDET_ROOT = osp.abspath(osp.join(ANALYSIS_DIR, '..', '..', '..'))
+sys.path.insert(0, MMDET_ROOT)
+sys.path.insert(0, ANALYSIS_DIR)
 
 
 def assert_analysis_path(path: str) -> str:
@@ -241,7 +247,8 @@ class Stats:
         self.det_images = 0
         self.det_over = {threshold: 0 for threshold in DET_THRESHOLDS}
 
-    def add(self, delta, u, r_bar, alpha, g_max) -> None:
+    def add(self, delta, u, r_bar, alpha, g_max, p0=None,
+            g_values=None) -> None:
         delta = np.asarray(delta, np.float64)
         u = np.asarray(u, np.float64).reshape(-1)
         self.calls += 1
@@ -258,11 +265,22 @@ class Stats:
         alpha = np.asarray(alpha, np.float64).reshape(-1)
         self.alpha_sum += float(alpha.sum())
         self.alpha_count += int(alpha.size)
-        # Eq. (11) again, from the returned quantities: g = clamp(u * r_bar)
-        g = np.clip(np.asarray(u, np.float64)[:, None]
-                    * np.asarray(r_bar, np.float64)[None, :], 0.0, g_max)
-        self.g_sum += float(g.sum())
-        self.g_count += int(g.size)
+        # Prefer the actual gate returned by ATAR.  It includes the configured
+        # reliability exponent, which cannot be reconstructed from r_bar alone.
+        if g_values is None:
+            g_values = np.clip(np.asarray(u, np.float64)[:, None]
+                               * np.asarray(r_bar, np.float64)[None, :],
+                               0.0, g_max)
+        gate = np.asarray(g_values, np.float64)
+        self.g_sum += float(gate.sum())
+        self.g_count += int(gate.size)
+        if not hasattr(self, 'p0_values'):
+            self.p0_values = []
+            self.g_values = []
+        if p0 is not None:
+            self.p0_values.extend(np.asarray(p0, np.float64).reshape(-1).tolist())
+        if g_values is not None:
+            self.g_values.extend(gate.reshape(-1).tolist())
 
     def add_detections(self, scores, n_images: int = 1) -> None:
         """Accumulate the boxes-per-image profile of one image.
@@ -286,6 +304,8 @@ class Stats:
         # square the number of calls
         delta_mean = (self.delta_sum / self.delta_count
                       if self.delta_count else 0.0)
+        p0 = np.asarray(getattr(self, 'p0_values', []), np.float64)
+        gv = np.asarray(getattr(self, 'g_values', []), np.float64)
         return dict(
             stage=self.stage, calls=self.calls, queries=int(self.queries),
             delta_mean_abs=delta_mean, delta_max_abs=self.delta_max,
@@ -296,6 +316,13 @@ class Stats:
             alpha_mean=(self.alpha_sum / self.alpha_count)
             if self.alpha_count else None,
             g_mean=(self.g_sum / self.g_count) if self.g_count else None,
+            p0_mean=float(p0.mean()) if p0.size else None,
+            p0_q05=float(np.quantile(p0, .05)) if p0.size else None,
+            p0_q50=float(np.quantile(p0, .50)) if p0.size else None,
+            p0_q95=float(np.quantile(p0, .95)) if p0.size else None,
+            g_q05=float(np.quantile(gv, .05)) if gv.size else None,
+            g_q50=float(np.quantile(gv, .50)) if gv.size else None,
+            g_q95=float(np.quantile(gv, .95)) if gv.size else None,
             det_per_image=(self.det_sum / self.det_images)
             if self.det_images else None,
             det_over_image={f'det>{threshold:.1f}':
@@ -517,6 +544,7 @@ def print_stage(summary: dict) -> None:
 
 
 def run(args) -> int:
+    print(f'[diag] repo root: {MMDET_ROOT}')
     import torch
     from mmengine.config import Config
     from mmengine.registry import init_default_scope
@@ -620,9 +648,21 @@ def run(args) -> int:
                   _original=original):
             out = _original(hidden_states, class_logits)
             with torch.no_grad():
+                # Older server copies of s2h_knowledge.py do not return the
+                # actual gate yet. Reconstruct it from the public ATAR values
+                # so diagnosis remains usable while the code is synchronized.
+                gate = out.get('g')
+                if gate is None:
+                    gate = (out['u'].unsqueeze(-1) *
+                            out['r_bar'].pow(max(
+                                float(getattr(_bank, 'reliability_power', 0.0)),
+                                0.0)))
+                    gate = gate.clamp(max=float(_bank.g_max))
                 _stats.add(delta=out['delta'].detach().cpu().numpy(),
                            u=out['u'].detach().cpu().numpy(),
                            r_bar=out['r_bar'].detach().cpu().numpy(),
+                           p0=out['p0'].detach().cpu().numpy(),
+                           g_values=gate.detach().cpu().numpy(),
                            alpha=_bank.current_alpha().detach().cpu().numpy(),
                            g_max=_bank.g_max)
             return out
